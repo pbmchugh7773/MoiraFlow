@@ -7,6 +7,7 @@ from dataclasses import asdict
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from .auth.exceptions import AuthError
 from .services import executions as ex
 from .services import workflows as wf
 
@@ -46,3 +47,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ex.WorkflowNotReadyError)
     async def _not_ready(_: Request, exc: ex.WorkflowNotReadyError) -> JSONResponse:
         return _envelope(409, "workflow_not_ready", str(exc))
+
+    @app.exception_handler(AuthError)
+    async def _auth(_: Request, exc: AuthError) -> JSONResponse:
+        return _envelope(exc.status_code, exc.code, exc.message)

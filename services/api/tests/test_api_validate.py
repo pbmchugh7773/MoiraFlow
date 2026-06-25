@@ -1,8 +1,22 @@
+import uuid
+
+import pytest
 from fastapi.testclient import TestClient
 
+from moiraflow_api.db import models
+from moiraflow_api.deps import get_current_user
 from moiraflow_api.main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    # validate is stateless (no DB); just satisfy authentication with a transient user.
+    app.dependency_overrides[get_current_user] = lambda: models.User(
+        id=uuid.uuid4(), tenant_id=uuid.uuid4(), email="t@x.io", password_hash="", role="developer"
+    )
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
 
 GOOD_YAML = """
 apiVersion: moiraflow/v1
@@ -23,7 +37,7 @@ spec:
 """
 
 
-def test_validate_good_workflow_returns_valid():
+def test_validate_good_workflow_returns_valid(client):
     resp = client.post("/api/v1/workflows/validate", json={"content": GOOD_YAML, "format": "yaml"})
     assert resp.status_code == 200
     body = resp.json()
@@ -31,7 +45,7 @@ def test_validate_good_workflow_returns_valid():
     assert body["errors"] == []
 
 
-def test_validate_reports_semantic_errors():
+def test_validate_reports_semantic_errors(client):
     bad = """
 apiVersion: moiraflow/v1
 kind: Workflow
@@ -53,7 +67,7 @@ spec:
     assert "unknown_context_ref" in codes
 
 
-def test_validate_reports_parse_error():
+def test_validate_reports_parse_error(client):
     resp = client.post(
         "/api/v1/workflows/validate", json={"content": "metadata: [unclosed", "format": "yaml"}
     )
@@ -63,7 +77,7 @@ def test_validate_reports_parse_error():
     assert body["errors"][0]["code"] == "parse_error"
 
 
-def test_validate_accepts_json_format():
+def test_validate_accepts_json_format(client):
     import json
 
     definition = json.dumps(

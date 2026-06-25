@@ -1,12 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from moiraflow_api.db.base import Base
-from moiraflow_api.deps import get_session
+from moiraflow_api.deps import get_current_user, get_session
 from moiraflow_api.main import app
+from tests._helpers import make_sqlite_factory, seed_user, session_override
 
 WF = """
 apiVersion: moiraflow/v1
@@ -23,24 +20,10 @@ spec:
 
 @pytest.fixture
 def client():
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(engine, expire_on_commit=False)
-
-    def override() -> object:
-        session: Session = factory()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-
-    app.dependency_overrides[get_session] = override
+    factory = make_sqlite_factory()
+    admin = seed_user(factory, role="admin")
+    app.dependency_overrides[get_session] = session_override(factory)
+    app.dependency_overrides[get_current_user] = lambda: admin
     yield TestClient(app)
     app.dependency_overrides.clear()
 

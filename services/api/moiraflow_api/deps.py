@@ -7,17 +7,24 @@ database (see tests/test_api_workflows.py).
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import uuid
+from collections.abc import Callable, Iterator
 from functools import lru_cache
 
 from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from .auth.exceptions import AuthError
+from .auth.security import TokenError, decode_access_token
 from .config import get_settings
 from .db import models
 from .db.session import make_engine, make_session_factory
+from .services import users as user_svc
 from .services.executions import WorkflowStarter
+
+_bearer = HTTPBearer(auto_error=False)
 
 
 @lru_cache(maxsize=1)
@@ -53,3 +60,42 @@ def get_workflow_starter() -> WorkflowStarter:
 
     settings = get_settings()
     return TemporalWorkflowStarter(settings.temporal_host, settings.temporal_namespace)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    session: Session = Depends(get_session),
+) -> models.User:
+    if credentials is None:
+        raise AuthError(401, "unauthenticated", "missing bearer token")
+    try:
+        claims = decode_access_token(credentials.credentials, get_settings().jwt_secret)
+        user_id = uuid.UUID(claims["sub"])
+    except (TokenError, KeyError, ValueError) as exc:
+        raise AuthError(401, "invalid_token", f"invalid token: {exc}") from exc
+    try:
+        return user_svc.get_user(session, user_id)
+    except user_svc.UserNotFoundError as exc:
+        raise AuthError(401, "invalid_token", "token subject not found") from exc
+
+
+def get_current_tenant(
+    user: models.User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> models.Tenant:
+    tenant = session.get(models.Tenant, user.tenant_id)
+    if tenant is None:  # pragma: no cover - tenant FK guards this
+        raise AuthError(401, "invalid_token", "tenant not found")
+    return tenant
+
+
+def require_roles(*allowed: str) -> Callable[[models.User], models.User]:
+    """RBAC guard. `admin` is always permitted (docs 04 §A.8)."""
+    permitted = set(allowed) | {"admin"}
+
+    def dependency(user: models.User = Depends(get_current_user)) -> models.User:
+        if user.role not in permitted:
+            raise AuthError(403, "forbidden", f"role '{user.role}' may not perform this action")
+        return user
+
+    return dependency

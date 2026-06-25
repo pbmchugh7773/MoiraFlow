@@ -12,6 +12,8 @@ class Settings:
     temporal_host: str = os.getenv("TEMPORAL_HOST", "localhost:7233")
     temporal_namespace: str = os.getenv("TEMPORAL_NAMESPACE", "default")
     server_task_queue: str = os.getenv("MOIRAFLOW_TASK_QUEUE", "moiraflow-server")
+    jwt_secret: str = os.getenv("JWT_SECRET", "dev-insecure-secret-change-me-please-32bytes")
+    jwt_expires_seconds: int = int(os.getenv("JWT_EXPIRES_SECONDS", "3600"))
 
 
 def get_settings() -> Settings:
