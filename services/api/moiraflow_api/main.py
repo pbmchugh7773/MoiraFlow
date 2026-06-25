@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from .errors import register_error_handlers
 from .routers import catalog, workflows
 
 API_PREFIX = "/api/v1"
@@ -23,6 +24,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(workflows.router, prefix=API_PREFIX)
     app.include_router(catalog.router, prefix=API_PREFIX)
+    register_error_handlers(app)
     return app
 
 
