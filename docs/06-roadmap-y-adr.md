@@ -9,12 +9,12 @@ La estrategia es construir la **vertical fina end-to-end** (ver
 `01-factibilidad-alcance-mvp.md` §3) y luego ensanchar. Cada hito termina en algo
 demostrable y desplegable con `docker compose up`.
 
-### Hito 0 — Fundaciones (semanas 1–2)
-- Monorepo, estructura de carpetas (`07-...md`), CI básico (lint + tests).
-- `docker-compose` con Postgres, Temporal, Redis, MinIO levantando.
-- Esqueleto FastAPI + esqueleto worker Temporal "hola mundo".
-- Migración Alembic inicial (todas las tablas de `03-...md`).
-- **Entregable:** entorno reproducible; un workflow trivial corre en Temporal.
+### Hito 0 — Fundaciones (semanas 1–2) ✅ COMPLETADO
+- [x] Monorepo (`services/api`, `services/worker`, `deploy/`), CI básico (lint + format + types + tests, GitHub Actions matrix).
+- [x] `docker-compose` con Postgres, Temporal, Redis, MinIO levantando.
+- [x] FastAPI + worker Temporal (más que esqueleto: ya con el interpreter y activities).
+- [x] Migración Alembic inicial (todas las tablas de `03-...md`, + citext/pgcrypto).
+- [x] **Entregable verificado:** `docker compose up` reproducible; workflow trivial (DAG de 2 `command`) corre en Temporal hasta `COMPLETED`. Quickstart en `README.md`.
 
 ### Hito 1 — Motor + workflow-as-code server-side (semanas 3–6)
 - Parser/validador del esquema de workflow (JSON Schema) + `validate`.
