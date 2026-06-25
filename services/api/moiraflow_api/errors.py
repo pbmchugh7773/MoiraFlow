@@ -7,6 +7,7 @@ from dataclasses import asdict
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from .services import executions as ex
 from .services import workflows as wf
 
 
@@ -37,3 +38,11 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(wf.VersionNotFoundError)
     async def _ver_missing(_: Request, exc: wf.VersionNotFoundError) -> JSONResponse:
         return _envelope(404, "not_found", str(exc))
+
+    @app.exception_handler(ex.ExecutionNotFoundError)
+    async def _exec_missing(_: Request, exc: ex.ExecutionNotFoundError) -> JSONResponse:
+        return _envelope(404, "not_found", str(exc))
+
+    @app.exception_handler(ex.WorkflowNotReadyError)
+    async def _not_ready(_: Request, exc: ex.WorkflowNotReadyError) -> JSONResponse:
+        return _envelope(409, "workflow_not_ready", str(exc))

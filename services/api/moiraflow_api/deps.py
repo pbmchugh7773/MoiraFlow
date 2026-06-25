@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from .config import get_settings
 from .db import models
 from .db.session import make_engine, make_session_factory
+from .services.executions import WorkflowStarter
 
 
 @lru_cache(maxsize=1)
@@ -44,3 +45,11 @@ def get_default_tenant(session: Session = Depends(get_session)) -> models.Tenant
         session.add(tenant)
         session.flush()
     return tenant
+
+
+def get_workflow_starter() -> WorkflowStarter:
+    """The production Temporal starter. Tests override this with a fake."""
+    from .temporal import TemporalWorkflowStarter
+
+    settings = get_settings()
+    return TemporalWorkflowStarter(settings.temporal_host, settings.temporal_namespace)
