@@ -9,9 +9,13 @@ dependencies = [
     "pydantic>=2.6",
     "pyyaml>=6.0",
     "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "temporalio>=1.8",
+    "psycopg[binary]>=3.1",
+    "argon2-cffi>=23",
+    "pyjwt>=2.8",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +37,8 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# Alembic autogenerates version files; don't lint generated code.
+extend-exclude = ["moiraflow_api/migrations/versions"]
 
 [tool.black]
 line-length = 100
@@ -41,3 +47,4 @@ target-version = ["py310"]
 [tool.mypy]
 python_version = "3.10"
 strict = true
+exclude = ["moiraflow_api/migrations/"]
