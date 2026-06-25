@@ -1,6 +1,6 @@
-# FlowOps — Documentación de Arranque
+# MoiraFlow — Documentación de Arranque
 
-> Paquete de documentación para iniciar el desarrollo de **FlowOps**, una
+> Paquete de documentación para iniciar el desarrollo de **MoiraFlow**, una
 > "Automation Operating System" para SMBs.
 > Fecha: 2026-06-24 · Estado: Borrador para arranque · **Todo es tentativo y revisable.**
 
@@ -21,7 +21,7 @@
 
 2. **[02 — Arquitectura](02-arquitectura.md)**
    Diagrama lógico, componentes, papel de Temporal, flujos clave, compatibilidad
-   con FlowOps Architect (IA futura).
+   con MoiraFlow Architect (IA futura).
 
 3. **[03 — Modelo de Datos](03-modelo-datos.md)**
    Esquema PostgreSQL con `tenant_id` desde el día 1, tablas, estados, auditoría,

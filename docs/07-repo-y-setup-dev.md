@@ -22,7 +22,7 @@
 ## 2. Estructura del monorepo
 
 ```
-flowops/
+moiraflow/
 ├─ docker-compose.yml            # stack completo para dev local
 ├─ .env.example                  # variables (DB, Temporal, MinIO, JWT secret...)
 ├─ README.md                     # quickstart
@@ -30,7 +30,7 @@ flowops/
 │
 ├─ services/
 │  ├─ api/                       # FastAPI
-│  │  ├─ flowops_api/
+│  │  ├─ moiraflow_api/
 │  │  │  ├─ main.py
 │  │  │  ├─ config.py
 │  │  │  ├─ db/                  # SQLAlchemy models, session
@@ -44,7 +44,7 @@ flowops/
 │  │  └─ pyproject.toml
 │  │
 │  ├─ worker/                    # Temporal workflows + activities (server-side)
-│  │  ├─ flowops_worker/
+│  │  ├─ moiraflow_worker/
 │  │  │  ├─ workflows/           # el "interpreter" del DAG
 │  │  │  ├─ activities/          # rest_job, sql_job, command_job
 │  │  │  ├─ context.py           # contexto compartido
@@ -53,7 +53,7 @@ flowops/
 │  │  └─ pyproject.toml
 │  │
 │  ├─ agent/                     # agente delgado (Temporal worker remoto)
-│  │  ├─ flowops_agent/
+│  │  ├─ moiraflow_agent/
 │  │  │  ├─ main.py              # conexión mTLS + task queue agent-<id>
 │  │  │  ├─ enroll.py            # enrolamiento/certificados
 │  │  │  ├─ activities/          # command_job (con aislamiento)
@@ -96,10 +96,10 @@ flowops/
 ## 4. Variables de entorno (`.env.example`)
 ```
 # Database
-POSTGRES_USER=flowops
+POSTGRES_USER=moiraflow
 POSTGRES_PASSWORD=changeme
-POSTGRES_DB=flowops
-DATABASE_URL=postgresql+psycopg://flowops:changeme@postgres:5432/flowops
+POSTGRES_DB=moiraflow
+DATABASE_URL=postgresql+psycopg://moiraflow:changeme@postgres:5432/moiraflow
 
 # Temporal
 TEMPORAL_HOST=temporal:7233
@@ -112,7 +112,7 @@ REDIS_URL=redis://redis:6379/0
 S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=minioadmin
 S3_SECRET_KEY=minioadmin
-S3_BUCKET=flowops-artifacts
+S3_BUCKET=moiraflow-artifacts
 
 # Auth / cifrado
 JWT_SECRET=change-this
@@ -125,13 +125,13 @@ CA_KEY_PATH=/deploy/ca/ca.key
 
 ## 5. Quickstart (objetivo del Hito 0)
 ```bash
-git clone <repo> && cd flowops
+git clone <repo> && cd moiraflow
 cp .env.example .env            # ajustar secretos
 docker compose up -d            # levanta todo
 # aplicar migraciones
 docker compose exec api alembic upgrade head
 # crear usuario admin inicial
-docker compose exec api python -m flowops_api.scripts.create_admin
+docker compose exec api python -m moiraflow_api.scripts.create_admin
 # UI:        http://localhost:5173
 # API docs:  http://localhost:8000/api/v1/docs
 # Temporal:  http://localhost:8080

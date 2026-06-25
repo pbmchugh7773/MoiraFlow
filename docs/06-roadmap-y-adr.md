@@ -68,7 +68,7 @@ Solo se aborda con los Hitos 1–4 verdes. Si se desvía, **no bloquea** un MVP 
   Windows/macOS + contenedor por job.
 - **Fase 3:** Marketplace de plugins, multi-tenancy operativa + aislamiento +
   billing, SaaS.
-- **Fase 4:** FlowOps Architect (IA) sobre los catálogos/validación/simulación ya
+- **Fase 4:** MoiraFlow Architect (IA) sobre los catálogos/validación/simulación ya
   expuestos; despliegue automático; Kubernetes; RabbitMQ/Kafka si se necesita.
 
 > Realismo: para 1 dev, ~14 semanas a un **MVP funcionalmente completo** (Hitos 0–4,
@@ -89,7 +89,7 @@ Formato breve: contexto → decisión → consecuencias. Las decisiones marcadas
 **Estado:** Aceptada.
 **Contexto:** *durable execution* (dependencias, retry, timeout, recuperación,
 replay) es lo más difícil y arriesgado; el equipo es 1 dev.
-**Decisión:** construir FlowOps como capa sobre Temporal en lugar de un motor propio.
+**Decisión:** construir MoiraFlow como capa sobre Temporal en lugar de un motor propio.
 **Consecuencias:** -70% de riesgo técnico y tiempo; +1 dependencia de
 infraestructura (Temporal Server) en el `docker-compose`; el modelo de ejecución
 se expresa como un Temporal Workflow "interpreter".

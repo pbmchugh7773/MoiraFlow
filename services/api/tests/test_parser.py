@@ -1,9 +1,9 @@
 import pytest
 
-from flowops_api.workflow.parser import parse_definition, ParseError
+from moiraflow_api.workflow.parser import parse_definition, ParseError
 
 YAML = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata:
   name: daily_import
@@ -28,7 +28,7 @@ def test_parses_json_string():
     wf = parse_definition(
         json.dumps(
             {
-                "apiVersion": "flowops/v1",
+                "apiVersion": "moiraflow/v1",
                 "kind": "Workflow",
                 "metadata": {"name": "n"},
                 "spec": {
@@ -49,4 +49,4 @@ def test_malformed_yaml_raises_parse_error():
 
 def test_schema_violation_raises_parse_error():
     with pytest.raises(ParseError):
-        parse_definition("apiVersion: flowops/v1\nkind: Workflow\n", "yaml")
+        parse_definition("apiVersion: moiraflow/v1\nkind: Workflow\n", "yaml")

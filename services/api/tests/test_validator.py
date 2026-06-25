@@ -1,11 +1,11 @@
-from flowops_api.workflow import (
+from moiraflow_api.workflow import (
     validate_workflow,
     ValidationResult,
     workflow_json_schema,
 )
 
 GOOD = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata: { name: daily_import }
 spec:
@@ -38,7 +38,7 @@ def test_parse_error_becomes_structured_error():
 
 def test_semantic_errors_aggregated():
     bad = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata: { name: n }
 spec:

@@ -1,13 +1,18 @@
 import asyncio
 
-from flowops_worker.interpreter import JobRequest, JobResult, run_dag
+from moiraflow_worker.interpreter import JobRequest, JobResult, run_dag
 
 
 def _defn(jobs, context=None):
     spec = {"trigger": {"type": "manual"}, "jobs": jobs}
     if context is not None:
         spec["context"] = context
-    return {"apiVersion": "flowops/v1", "kind": "Workflow", "metadata": {"name": "n"}, "spec": spec}
+    return {
+        "apiVersion": "moiraflow/v1",
+        "kind": "Workflow",
+        "metadata": {"name": "n"},
+        "spec": spec,
+    }
 
 
 def _record_run(calls):

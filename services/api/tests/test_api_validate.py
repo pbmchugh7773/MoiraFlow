@@ -1,11 +1,11 @@
 from fastapi.testclient import TestClient
 
-from flowops_api.main import app
+from moiraflow_api.main import app
 
 client = TestClient(app)
 
 GOOD_YAML = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata: { name: daily_import }
 spec:
@@ -33,7 +33,7 @@ def test_validate_good_workflow_returns_valid():
 
 def test_validate_reports_semantic_errors():
     bad = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata: { name: n }
 spec:
@@ -68,7 +68,7 @@ def test_validate_accepts_json_format():
 
     definition = json.dumps(
         {
-            "apiVersion": "flowops/v1",
+            "apiVersion": "moiraflow/v1",
             "kind": "Workflow",
             "metadata": {"name": "n"},
             "spec": {

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from flowops_api.main import app
+from moiraflow_api.main import app
 
 client = TestClient(app)
 
@@ -16,4 +16,4 @@ def test_workflow_schema_endpoint_returns_json_schema():
 def test_openapi_is_served():
     resp = client.get("/api/v1/openapi.json")
     assert resp.status_code == 200
-    assert resp.json()["info"]["title"] == "FlowOps API"
+    assert resp.json()["info"]["title"] == "MoiraFlow API"

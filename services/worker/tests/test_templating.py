@@ -1,6 +1,11 @@
 import pytest
 
-from flowops_worker.templating import RenderScope, TemplateError, render_job_inputs, render_template
+from moiraflow_worker.templating import (
+    RenderScope,
+    TemplateError,
+    render_job_inputs,
+    render_template,
+)
 
 
 def _scope(context=None, outputs=None):

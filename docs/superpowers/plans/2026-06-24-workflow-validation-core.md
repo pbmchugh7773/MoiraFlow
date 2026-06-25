@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the pure-Python core that parses a FlowOps workflow (YAML/JSON), validates it structurally and semantically (DAG + template references), and produces a canonical content hash — with zero infrastructure dependencies.
+**Goal:** Build the pure-Python core that parses a MoiraFlow workflow (YAML/JSON), validates it structurally and semantically (DAG + template references), and produces a canonical content hash — with zero infrastructure dependencies.
 
 **Architecture:** Pydantic v2 models are the single source of truth for structure (and the published JSON Schema is generated from them with `model_json_schema()`). A separate semantic validator covers what JSON Schema cannot express: DAG acyclicity, `needs` integrity, and `{{ jobs.X.outputs.Y }}` reference resolution. A top-level `validate_workflow()` aggregates everything into `{valid, errors[]}`. This is the foundation the API `POST /workflows/validate` endpoint and the Temporal interpreter will both consume.
 
@@ -24,14 +24,14 @@
 
 **Files:**
 - Create: `services/api/pyproject.toml`
-- Create: `services/api/flowops_api/__init__.py`
-- Create: `services/api/flowops_api/workflow/__init__.py`
-- Create: `services/api/flowops_api/workflow/models.py`
+- Create: `services/api/moiraflow_api/__init__.py`
+- Create: `services/api/moiraflow_api/workflow/__init__.py`
+- Create: `services/api/moiraflow_api/workflow/models.py`
 - Create: `services/api/tests/__init__.py`
 - Test: `services/api/tests/test_models.py`
 
 **Interfaces:**
-- Produces: `WorkflowDefinition`, `Spec`, `Job`, `Trigger`, `Metadata`, `RetryPolicy` Pydantic models. `Job` fields: `id: str`, `type: Literal["command","rest","sql"]`, `run_on: Literal["server","agent"]="server"`, `agent_selector: dict[str,str]|None`, `needs: list[str]=[]`, `with_: dict[str,Any]` (alias `with`), `timeout: str|None`, `retry: RetryPolicy|None`, `outputs: dict[str,str]={}`, `condition: str|None`. `WorkflowDefinition` fields: `api_version: Literal["flowops/v1"]` (alias `apiVersion`), `kind: Literal["Workflow"]`, `metadata: Metadata`, `spec: Spec`.
+- Produces: `WorkflowDefinition`, `Spec`, `Job`, `Trigger`, `Metadata`, `RetryPolicy` Pydantic models. `Job` fields: `id: str`, `type: Literal["command","rest","sql"]`, `run_on: Literal["server","agent"]="server"`, `agent_selector: dict[str,str]|None`, `needs: list[str]=[]`, `with_: dict[str,Any]` (alias `with`), `timeout: str|None`, `retry: RetryPolicy|None`, `outputs: dict[str,str]={}`, `condition: str|None`. `WorkflowDefinition` fields: `api_version: Literal["moiraflow/v1"]` (alias `apiVersion`), `kind: Literal["Workflow"]`, `metadata: Metadata`, `spec: Spec`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -40,10 +40,10 @@
 import pytest
 from pydantic import ValidationError as PydValidationError
 
-from flowops_api.workflow.models import WorkflowDefinition, Job
+from moiraflow_api.workflow.models import WorkflowDefinition, Job
 
 VALID = {
-    "apiVersion": "flowops/v1",
+    "apiVersion": "moiraflow/v1",
     "kind": "Workflow",
     "metadata": {"name": "daily_import"},
     "spec": {
@@ -81,16 +81,16 @@ def test_invalid_job_id_rejected():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd services/api && python -m pytest tests/test_models.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'flowops_api'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'moiraflow_api'`
 
 - [ ] **Step 3: Write the pyproject and models**
 
 ```toml
 # services/api/pyproject.toml
 [project]
-name = "flowops-api"
+name = "moiraflow-api"
 version = "0.1.0"
-description = "FlowOps API service"
+description = "MoiraFlow API service"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.6",
@@ -105,7 +105,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["flowops_api"]
+packages = ["moiraflow_api"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -119,15 +119,15 @@ line-length = 100
 ```
 
 ```python
-# services/api/flowops_api/__init__.py
+# services/api/moiraflow_api/__init__.py
 ```
 
 ```python
-# services/api/flowops_api/workflow/__init__.py
+# services/api/moiraflow_api/workflow/__init__.py
 ```
 
 ```python
-# services/api/flowops_api/workflow/models.py
+# services/api/moiraflow_api/workflow/models.py
 """Pydantic v2 models — the single source of truth for the workflow-as-code schema.
 
 The published JSON Schema (catalog/workflow-schema) is generated from these models.
@@ -205,7 +205,7 @@ class Metadata(BaseModel):
 
 class WorkflowDefinition(BaseModel):
     model_config = _STRICT
-    api_version: Literal["flowops/v1"] = Field(alias="apiVersion")
+    api_version: Literal["moiraflow/v1"] = Field(alias="apiVersion")
     kind: Literal["Workflow"]
     metadata: Metadata
     spec: Spec
@@ -219,7 +219,7 @@ Expected: PASS (4 passed)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add services/api/pyproject.toml services/api/flowops_api services/api/tests
+git add services/api/pyproject.toml services/api/moiraflow_api services/api/tests
 git commit -m "feat(api): workflow-as-code Pydantic models + package scaffold"
 ```
 
@@ -228,7 +228,7 @@ git commit -m "feat(api): workflow-as-code Pydantic models + package scaffold"
 ### Task 2: Parse YAML/JSON into the model
 
 **Files:**
-- Create: `services/api/flowops_api/workflow/parser.py`
+- Create: `services/api/moiraflow_api/workflow/parser.py`
 - Test: `services/api/tests/test_parser.py`
 
 **Interfaces:**
@@ -241,10 +241,10 @@ git commit -m "feat(api): workflow-as-code Pydantic models + package scaffold"
 # services/api/tests/test_parser.py
 import pytest
 
-from flowops_api.workflow.parser import parse_definition, ParseError
+from moiraflow_api.workflow.parser import parse_definition, ParseError
 
 YAML = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata:
   name: daily_import
@@ -266,7 +266,7 @@ def test_parses_yaml():
 def test_parses_json_string():
     import json
     wf = parse_definition(json.dumps({
-        "apiVersion": "flowops/v1", "kind": "Workflow",
+        "apiVersion": "moiraflow/v1", "kind": "Workflow",
         "metadata": {"name": "n"},
         "spec": {"trigger": {"type": "manual"},
                  "jobs": [{"id": "j", "type": "command", "with": {"command": "ls"}}]},
@@ -281,18 +281,18 @@ def test_malformed_yaml_raises_parse_error():
 
 def test_schema_violation_raises_parse_error():
     with pytest.raises(ParseError):
-        parse_definition("apiVersion: flowops/v1\nkind: Workflow\n", "yaml")
+        parse_definition("apiVersion: moiraflow/v1\nkind: Workflow\n", "yaml")
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd services/api && python -m pytest tests/test_parser.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'flowops_api.workflow.parser'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'moiraflow_api.workflow.parser'`
 
 - [ ] **Step 3: Write the parser**
 
 ```python
-# services/api/flowops_api/workflow/parser.py
+# services/api/moiraflow_api/workflow/parser.py
 """Turn raw YAML/JSON into a validated WorkflowDefinition."""
 from __future__ import annotations
 
@@ -352,7 +352,7 @@ Expected: PASS (4 passed)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add services/api/flowops_api/workflow/parser.py services/api/tests/test_parser.py
+git add services/api/moiraflow_api/workflow/parser.py services/api/tests/test_parser.py
 git commit -m "feat(api): YAML/JSON workflow parser with ParseError"
 ```
 
@@ -361,8 +361,8 @@ git commit -m "feat(api): YAML/JSON workflow parser with ParseError"
 ### Task 3: DAG validation (unique ids, needs integrity, acyclicity)
 
 **Files:**
-- Create: `services/api/flowops_api/workflow/errors.py`
-- Create: `services/api/flowops_api/workflow/dag.py`
+- Create: `services/api/moiraflow_api/workflow/errors.py`
+- Create: `services/api/moiraflow_api/workflow/dag.py`
 - Test: `services/api/tests/test_dag.py`
 
 **Interfaces:**
@@ -373,13 +373,13 @@ git commit -m "feat(api): YAML/JSON workflow parser with ParseError"
 
 ```python
 # services/api/tests/test_dag.py
-from flowops_api.workflow.dag import validate_dag, topological_order
-from flowops_api.workflow.parser import parse_definition
+from moiraflow_api.workflow.dag import validate_dag, topological_order
+from moiraflow_api.workflow.parser import parse_definition
 
 
 def _wf(jobs):
     return parse_definition(
-        {"apiVersion": "flowops/v1", "kind": "Workflow",
+        {"apiVersion": "moiraflow/v1", "kind": "Workflow",
          "metadata": {"name": "n"},
          "spec": {"trigger": {"type": "manual"}, "jobs": jobs}}, "dict")
 
@@ -422,12 +422,12 @@ def test_cycle_detected():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd services/api && python -m pytest tests/test_dag.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'flowops_api.workflow.dag'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'moiraflow_api.workflow.dag'`
 
 - [ ] **Step 3: Write errors + dag (Kahn's algorithm)**
 
 ```python
-# services/api/flowops_api/workflow/errors.py
+# services/api/moiraflow_api/workflow/errors.py
 """Structured validation error shared across validators."""
 from __future__ import annotations
 
@@ -442,7 +442,7 @@ class WorkflowError:
 ```
 
 ```python
-# services/api/flowops_api/workflow/dag.py
+# services/api/moiraflow_api/workflow/dag.py
 """DAG validation and ordering for a workflow's jobs.
 
 Kahn's algorithm gives O(V + E) cycle detection and a deterministic
@@ -533,7 +533,7 @@ Expected: PASS (4 passed)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add services/api/flowops_api/workflow/errors.py services/api/flowops_api/workflow/dag.py services/api/tests/test_dag.py
+git add services/api/moiraflow_api/workflow/errors.py services/api/moiraflow_api/workflow/dag.py services/api/tests/test_dag.py
 git commit -m "feat(api): DAG validation (dup ids, needs integrity, cycle detection) + topo order"
 ```
 
@@ -542,7 +542,7 @@ git commit -m "feat(api): DAG validation (dup ids, needs integrity, cycle detect
 ### Task 4: Template reference validation (declared-outputs model)
 
 **Files:**
-- Create: `services/api/flowops_api/workflow/references.py`
+- Create: `services/api/moiraflow_api/workflow/references.py`
 - Test: `services/api/tests/test_references.py`
 
 **Interfaces:**
@@ -553,8 +553,8 @@ git commit -m "feat(api): DAG validation (dup ids, needs integrity, cycle detect
 
 ```python
 # services/api/tests/test_references.py
-from flowops_api.workflow.references import validate_references
-from flowops_api.workflow.parser import parse_definition
+from moiraflow_api.workflow.references import validate_references
+from moiraflow_api.workflow.parser import parse_definition
 
 
 def _wf(jobs, context=None):
@@ -562,7 +562,7 @@ def _wf(jobs, context=None):
     if context is not None:
         spec["context"] = context
     return parse_definition(
-        {"apiVersion": "flowops/v1", "kind": "Workflow",
+        {"apiVersion": "moiraflow/v1", "kind": "Workflow",
          "metadata": {"name": "n"}, "spec": spec}, "dict")
 
 
@@ -621,12 +621,12 @@ def test_nondeterministic_template_rejected():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd services/api && python -m pytest tests/test_references.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'flowops_api.workflow.references'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'moiraflow_api.workflow.references'`
 
 - [ ] **Step 3: Write the reference validator**
 
 ```python
-# services/api/flowops_api/workflow/references.py
+# services/api/moiraflow_api/workflow/references.py
 """Validate {{ ... }} template references against the declared-outputs model.
 
 Per ADR-0013 there is no shared mutable context: a job may only read
@@ -707,7 +707,7 @@ Expected: PASS (6 passed)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add services/api/flowops_api/workflow/references.py services/api/tests/test_references.py
+git add services/api/moiraflow_api/workflow/references.py services/api/tests/test_references.py
 git commit -m "feat(api): template reference validation (declared-outputs + determinism)"
 ```
 
@@ -716,7 +716,7 @@ git commit -m "feat(api): template reference validation (declared-outputs + dete
 ### Task 5: Canonical normalization + content hash
 
 **Files:**
-- Create: `services/api/flowops_api/workflow/hashing.py`
+- Create: `services/api/moiraflow_api/workflow/hashing.py`
 - Test: `services/api/tests/test_hashing.py`
 
 **Interfaces:**
@@ -727,10 +727,10 @@ git commit -m "feat(api): template reference validation (declared-outputs + dete
 
 ```python
 # services/api/tests/test_hashing.py
-from flowops_api.workflow.hashing import definition_hash, canonical_dict
-from flowops_api.workflow.parser import parse_definition
+from moiraflow_api.workflow.hashing import definition_hash, canonical_dict
+from moiraflow_api.workflow.parser import parse_definition
 
-BASE = {"apiVersion": "flowops/v1", "kind": "Workflow",
+BASE = {"apiVersion": "moiraflow/v1", "kind": "Workflow",
         "metadata": {"name": "n"},
         "spec": {"trigger": {"type": "manual"},
                  "jobs": [{"id": "a", "type": "command", "with": {"command": "ls"}}]}}
@@ -743,7 +743,7 @@ def test_hash_is_stable_and_hex():
 
 
 def test_key_order_does_not_change_hash():
-    reordered = {"kind": "Workflow", "apiVersion": "flowops/v1",
+    reordered = {"kind": "Workflow", "apiVersion": "moiraflow/v1",
                  "spec": BASE["spec"], "metadata": {"name": "n"}}
     assert definition_hash(parse_definition(BASE, "dict")) == \
            definition_hash(parse_definition(reordered, "dict"))
@@ -757,19 +757,19 @@ def test_semantic_change_changes_hash():
 
 def test_canonical_dict_uses_aliases():
     cd = canonical_dict(parse_definition(BASE, "dict"))
-    assert cd["apiVersion"] == "flowops/v1"
+    assert cd["apiVersion"] == "moiraflow/v1"
     assert cd["spec"]["jobs"][0]["with"] == {"command": "ls"}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd services/api && python -m pytest tests/test_hashing.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'flowops_api.workflow.hashing'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'moiraflow_api.workflow.hashing'`
 
 - [ ] **Step 3: Write the hashing module**
 
 ```python
-# services/api/flowops_api/workflow/hashing.py
+# services/api/moiraflow_api/workflow/hashing.py
 """Canonical normalization + content hash for immutable versioning (docs 03 §3.4)."""
 from __future__ import annotations
 
@@ -800,7 +800,7 @@ Expected: PASS (4 passed)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add services/api/flowops_api/workflow/hashing.py services/api/tests/test_hashing.py
+git add services/api/moiraflow_api/workflow/hashing.py services/api/tests/test_hashing.py
 git commit -m "feat(api): canonical normalization + sha256 content hash"
 ```
 
@@ -809,8 +809,8 @@ git commit -m "feat(api): canonical normalization + sha256 content hash"
 ### Task 6: `validate_workflow()` aggregator + generated JSON Schema
 
 **Files:**
-- Create: `services/api/flowops_api/workflow/validator.py`
-- Modify: `services/api/flowops_api/workflow/__init__.py` (export public API)
+- Create: `services/api/moiraflow_api/workflow/validator.py`
+- Modify: `services/api/moiraflow_api/workflow/__init__.py` (export public API)
 - Test: `services/api/tests/test_validator.py`
 
 **Interfaces:**
@@ -821,12 +821,12 @@ git commit -m "feat(api): canonical normalization + sha256 content hash"
 
 ```python
 # services/api/tests/test_validator.py
-from flowops_api.workflow import (
+from moiraflow_api.workflow import (
     validate_workflow, ValidationResult, workflow_json_schema,
 )
 
 GOOD = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata: { name: daily_import }
 spec:
@@ -859,7 +859,7 @@ def test_parse_error_becomes_structured_error():
 
 def test_semantic_errors_aggregated():
     bad = """
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata: { name: n }
 spec:
@@ -891,7 +891,7 @@ Expected: FAIL — `ImportError: cannot import name 'validate_workflow'`
 - [ ] **Step 3: Write the aggregator and exports**
 
 ```python
-# services/api/flowops_api/workflow/validator.py
+# services/api/moiraflow_api/workflow/validator.py
 """Top-level validation entrypoint: never raises, aggregates all rules."""
 from __future__ import annotations
 
@@ -928,7 +928,7 @@ def workflow_json_schema() -> dict[str, Any]:
 ```
 
 ```python
-# services/api/flowops_api/workflow/__init__.py
+# services/api/moiraflow_api/workflow/__init__.py
 """Public surface of the workflow validation core."""
 from .errors import WorkflowError
 from .hashing import canonical_dict, definition_hash
@@ -951,8 +951,8 @@ Expected: PASS (all tasks' tests green)
 - [ ] **Step 5: Lint, type-check, commit**
 
 ```bash
-cd services/api && python -m ruff check flowops_api && python -m black --check flowops_api && python -m mypy flowops_api
-git add services/api/flowops_api/workflow/validator.py services/api/flowops_api/workflow/__init__.py services/api/tests/test_validator.py
+cd services/api && python -m ruff check moiraflow_api && python -m black --check moiraflow_api && python -m mypy moiraflow_api
+git add services/api/moiraflow_api/workflow/validator.py services/api/moiraflow_api/workflow/__init__.py services/api/tests/test_validator.py
 git commit -m "feat(api): validate_workflow aggregator + generated JSON Schema"
 ```
 

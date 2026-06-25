@@ -2,7 +2,7 @@
 
 > Estado: Borrador para arranque · Fecha: 2026-06-24
 > Principios: **API First** (todo vía API), **Workflow as Code**, **AI First**
-> (catálogo y validación legibles por máquina para FlowOps Architect).
+> (catálogo y validación legibles por máquina para MoiraFlow Architect).
 
 ## Parte A — API REST (FastAPI)
 
@@ -106,7 +106,7 @@ Schema** (expuesto en `/catalog/workflow-schema`). Se normaliza y versiona (hash
 
 ### B.1 Estructura general
 ```yaml
-apiVersion: flowops/v1
+apiVersion: moiraflow/v1
 kind: Workflow
 metadata:
   name: daily_import
@@ -163,7 +163,7 @@ spec:
 ### B.2 Campos del workflow
 | campo | obligatorio | descripción |
 |-------|:-----------:|-------------|
-| `apiVersion` / `kind` | ✓ | versión del esquema (`flowops/v1`) |
+| `apiVersion` / `kind` | ✓ | versión del esquema (`moiraflow/v1`) |
 | `metadata.name` | ✓ | único por tenant, `[a-z0-9_-]` |
 | `spec.trigger` | ✓ | tipo y config del disparador |
 | `spec.context` | – | variables iniciales compartidas |

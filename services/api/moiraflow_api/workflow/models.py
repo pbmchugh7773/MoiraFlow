@@ -76,7 +76,7 @@ class Metadata(BaseModel):
 
 class WorkflowDefinition(BaseModel):
     model_config = _STRICT
-    api_version: Literal["flowops/v1"] = Field(alias="apiVersion")
+    api_version: Literal["moiraflow/v1"] = Field(alias="apiVersion")
     kind: Literal["Workflow"]
     metadata: Metadata
     spec: Spec

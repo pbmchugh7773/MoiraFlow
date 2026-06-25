@@ -3,8 +3,8 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from flowops_api.db import models
-from flowops_api.db.base import Base
+from moiraflow_api.db import models
+from moiraflow_api.db.base import Base
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def test_workflow_version_chain_persists(session):
         tenant_id=t.id,
         workflow_id=wf.id,
         version=1,
-        definition={"apiVersion": "flowops/v1"},
+        definition={"apiVersion": "moiraflow/v1"},
         definition_hash="a" * 64,
         source_format="yaml",
     )
@@ -60,7 +60,7 @@ def test_workflow_version_chain_persists(session):
         select(models.WorkflowVersion).where(models.WorkflowVersion.workflow_id == wf.id)
     )
     assert got is not None
-    assert got.definition == {"apiVersion": "flowops/v1"}
+    assert got.definition == {"apiVersion": "moiraflow/v1"}
     assert got.version == 1
 
 

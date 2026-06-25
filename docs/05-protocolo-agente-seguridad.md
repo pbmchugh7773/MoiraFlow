@@ -9,7 +9,7 @@
 En lugar de inventar un protocolo agente↔servidor (HTTPS+WebSocket+gRPC propio,
 como en el documento original), el agente es **un Temporal worker remoto**:
 
-- Se conecta al **Temporal Server** (no directamente a la API de FlowOps) por
+- Se conecta al **Temporal Server** (no directamente a la API de MoiraFlow) por
   gRPC sobre TLS.
 - Escucha una **task queue exclusiva**: `agent-<agent_id>`.
 - Cuando un job tiene `run_on: agent` y un `agent_selector` que resuelve a ese
@@ -65,7 +65,7 @@ Job (run_on: agent, selector)            Temporal Server
 
 ### 4.1 Identidad y transporte
 - **mTLS** agente↔Temporal: cada agente tiene su certificado emitido por una CA
-  interna de FlowOps. El `fingerprint` se persiste y se valida.
+  interna de MoiraFlow. El `fingerprint` se persiste y se valida.
 - El agente **nunca** recibe credenciales del tenant ni acceso a la base de datos.
 - Toda comunicación cifrada en tránsito (TLS 1.2+).
 

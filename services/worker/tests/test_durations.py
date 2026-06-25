@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from flowops_worker.durations import parse_duration
+from moiraflow_worker.durations import parse_duration
 
 
 def test_parses_seconds():

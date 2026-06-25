@@ -1,4 +1,4 @@
-from flowops_worker.scheduling import ready_jobs
+from moiraflow_worker.scheduling import ready_jobs
 
 JOBS = [
     {"id": "a", "type": "command", "with": {"command": "ls"}},

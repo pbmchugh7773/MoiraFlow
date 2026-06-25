@@ -1,5 +1,5 @@
-from flowops_api.workflow.references import validate_references
-from flowops_api.workflow.parser import parse_definition
+from moiraflow_api.workflow.references import validate_references
+from moiraflow_api.workflow.parser import parse_definition
 
 
 def _wf(jobs, context=None):
@@ -7,7 +7,7 @@ def _wf(jobs, context=None):
     if context is not None:
         spec["context"] = context
     return parse_definition(
-        {"apiVersion": "flowops/v1", "kind": "Workflow", "metadata": {"name": "n"}, "spec": spec},
+        {"apiVersion": "moiraflow/v1", "kind": "Workflow", "metadata": {"name": "n"}, "spec": spec},
         "dict",
     )
 

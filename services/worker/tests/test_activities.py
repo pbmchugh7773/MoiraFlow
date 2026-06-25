@@ -3,8 +3,8 @@ import asyncio
 import httpx
 import pytest
 
-from flowops_worker.activities import execute_rest, run_command_job
-from flowops_worker.interpreter import JobRequest
+from moiraflow_worker.activities import execute_rest, run_command_job
+from moiraflow_worker.interpreter import JobRequest
 
 
 def _mock_client(handler):

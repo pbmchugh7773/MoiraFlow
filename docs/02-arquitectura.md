@@ -12,7 +12,7 @@ Se conservan los del documento de proyecto y guían cada decisión:
   conectores son plugins con un contrato común.
 - **Workflow as Code** — YAML/JSON como fuente de verdad, exportable/importable.
 - **AI First** — el motor expone catálogo y esquemas legibles por máquina para el
-  futuro FlowOps Architect, sin que la IA toque tablas internas.
+  futuro MoiraFlow Architect, sin que la IA toque tablas internas.
 - **Event Driven** — ejecución programada, por evento e híbrida.
 - **Auditability** — nada crítico vive solo en memoria; todo es trazable y *replayable*.
 
@@ -78,7 +78,7 @@ todo el estado vive en Postgres/Temporal/MinIO/Redis.
 Temporal aporta *durable execution*: el estado del workflow sobrevive a caídas, y
 las **actividades** (cada job) tienen reintentos, timeouts y backoff nativos.
 
-- Cada workflow de FlowOps se traduce a **un Temporal Workflow genérico**
+- Cada workflow de MoiraFlow se traduce a **un Temporal Workflow genérico**
   (un "interpreter") que recibe la definición (DAG de jobs) y la ejecuta
   resolviendo dependencias y propagando el **contexto compartido**.
 - Cada job es una **Activity**. El tipo de job determina qué plugin/actividad se
@@ -163,7 +163,7 @@ Postgres guarda la clave/URL y metadatos. Permite migrar a S3 real sin cambios.
 - Fallo de un job → `RetryPolicy` (fixed / exponential / custom) hasta agotar;
   luego política de error del workflow (continuar, fallar, compensar).
 
-## 5. Cómo encaja FlowOps Architect (futuro, sin construir aún)
+## 5. Cómo encaja MoiraFlow Architect (futuro, sin construir aún)
 El motor expone, **vía API y solo lectura**: catálogo de conectores, catálogo de
 jobs (con input/output schema), esquema de workflow, endpoint de **validación** y
 endpoint de **simulación** (dry-run que resuelve el DAG sin ejecutar efectos). La

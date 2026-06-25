@@ -1,10 +1,10 @@
 import pytest
 from pydantic import ValidationError as PydValidationError
 
-from flowops_api.workflow.models import WorkflowDefinition, Job
+from moiraflow_api.workflow.models import WorkflowDefinition, Job
 
 VALID = {
-    "apiVersion": "flowops/v1",
+    "apiVersion": "moiraflow/v1",
     "kind": "Workflow",
     "metadata": {"name": "daily_import"},
     "spec": {

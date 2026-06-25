@@ -4,7 +4,7 @@
 
 ## 1. Resumen ejecutivo
 
-FlowOps es una visión ambiciosa y coherente: una "Automation Operating System"
+MoiraFlow es una visión ambiciosa y coherente: una "Automation Operating System"
 para SMBs que combina orquestación tipo Control-M, integraciones tipo n8n/Zapier
 y ejecución distribuida con agentes. La visión es sólida. El riesgo **no** está
 en la idea, sino en el **alcance frente a los recursos disponibles**.
@@ -44,7 +44,7 @@ intentar cubrir toda la "Fase 1" del documento original.
 2. **Construir el motor de ejecución desde cero (mitigado).** Resolución de
    dependencias, reintentos, timeouts, recuperación y *replay* duraderos son lo
    más difícil de acertar. **Mitigación adoptada: usar Temporal**, que ya resuelve
-   durabilidad, reintentos, timeouts, *replay* y recuperación. FlowOps queda como
+   durabilidad, reintentos, timeouts, *replay* y recuperación. MoiraFlow queda como
    capa de modelado, API, UI, plugins y agentes por encima.
 
 3. **Agentes distribuidos en el MVP (riesgo alto, vigilar).** Ejecutar
@@ -106,7 +106,7 @@ y ver el resultado, los logs y el historial auditable en una UI.
 Designer visual completo (drag&drop), Secret Vault dedicado, SLA monitoring,
 versionado avanzado/diff visual, jobs Email/SFTP/File Watcher, marketplace de
 plugins, multi-tenancy operativa + billing, SaaS, agentes Windows/macOS con
-auto-update, gRPC, RabbitMQ/Kafka, FlowOps Architect (IA), Kubernetes.
+auto-update, gRPC, RabbitMQ/Kafka, MoiraFlow Architect (IA), Kubernetes.
 
 > Nota: la arquitectura se diseña para **no cerrar** ninguna de estas puertas.
 > Lo que cambia es el *orden de construcción*, no la visión.

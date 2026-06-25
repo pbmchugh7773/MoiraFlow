@@ -11,15 +11,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from flowops_worker.runtime import build_worker
+from moiraflow_worker.runtime import build_worker
 
 temporalio_testing = pytest.importorskip("temporalio.testing")
 WorkflowEnvironment = temporalio_testing.WorkflowEnvironment
 
-TASK_QUEUE = "flowops-itest"
+TASK_QUEUE = "moiraflow-itest"
 
 DEFINITION = {
-    "apiVersion": "flowops/v1",
+    "apiVersion": "moiraflow/v1",
     "kind": "Workflow",
     "metadata": {"name": "itest"},
     "spec": {

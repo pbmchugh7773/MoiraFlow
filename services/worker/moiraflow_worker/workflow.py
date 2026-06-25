@@ -1,4 +1,4 @@
-"""The generic Temporal Workflow that interprets any FlowOps definition.
+"""The generic Temporal Workflow that interprets any MoiraFlow definition.
 
 There is ONE interpreter workflow for ALL definitions (not one per workflow). It
 is a thin, deterministic adapter: it delegates orchestration to the pure

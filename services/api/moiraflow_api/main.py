@@ -1,4 +1,4 @@
-"""FlowOps API application factory.
+"""MoiraFlow API application factory.
 
 API First: every capability is exposed here; the UI and the future Architect are
 pure consumers of this contract. State lives in Postgres/Temporal/MinIO/Redis —
@@ -16,7 +16,7 @@ API_PREFIX = "/api/v1"
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="FlowOps API",
+        title="MoiraFlow API",
         version="0.1.0",
         docs_url=f"{API_PREFIX}/docs",
         openapi_url=f"{API_PREFIX}/openapi.json",

@@ -1,8 +1,8 @@
-from flowops_api.workflow.hashing import definition_hash, canonical_dict
-from flowops_api.workflow.parser import parse_definition
+from moiraflow_api.workflow.hashing import definition_hash, canonical_dict
+from moiraflow_api.workflow.parser import parse_definition
 
 BASE = {
-    "apiVersion": "flowops/v1",
+    "apiVersion": "moiraflow/v1",
     "kind": "Workflow",
     "metadata": {"name": "n"},
     "spec": {
@@ -21,7 +21,7 @@ def test_hash_is_stable_and_hex():
 def test_key_order_does_not_change_hash():
     reordered = {
         "kind": "Workflow",
-        "apiVersion": "flowops/v1",
+        "apiVersion": "moiraflow/v1",
         "spec": BASE["spec"],
         "metadata": {"name": "n"},
     }
@@ -39,5 +39,5 @@ def test_semantic_change_changes_hash():
 
 def test_canonical_dict_uses_aliases():
     cd = canonical_dict(parse_definition(BASE, "dict"))
-    assert cd["apiVersion"] == "flowops/v1"
+    assert cd["apiVersion"] == "moiraflow/v1"
     assert cd["spec"]["jobs"][0]["with"] == {"command": "ls"}

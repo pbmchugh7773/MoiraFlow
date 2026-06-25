@@ -1,11 +1,11 @@
-from flowops_api.workflow.dag import validate_dag, topological_order
-from flowops_api.workflow.parser import parse_definition
+from moiraflow_api.workflow.dag import validate_dag, topological_order
+from moiraflow_api.workflow.parser import parse_definition
 
 
 def _wf(jobs):
     return parse_definition(
         {
-            "apiVersion": "flowops/v1",
+            "apiVersion": "moiraflow/v1",
             "kind": "Workflow",
             "metadata": {"name": "n"},
             "spec": {"trigger": {"type": "manual"}, "jobs": jobs},

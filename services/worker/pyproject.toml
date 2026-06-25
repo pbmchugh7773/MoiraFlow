@@ -1,7 +1,7 @@
 [project]
-name = "flowops-worker"
+name = "moiraflow-worker"
 version = "0.1.0"
-description = "FlowOps Temporal worker (interpreter + server-side job activities)"
+description = "MoiraFlow Temporal worker (interpreter + server-side job activities)"
 # Production targets 3.12; local dev floor is 3.10 (code runs on 3.10–3.12).
 requires-python = ">=3.10"
 dependencies = [
@@ -16,7 +16,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["flowops_worker"]
+packages = ["moiraflow_worker"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -8,7 +8,7 @@ from temporalio.worker import Worker
 from .activities import SERVER_ACTIVITIES
 from .workflow import FlowInterpreter
 
-SERVER_TASK_QUEUE = "flowops-server"
+SERVER_TASK_QUEUE = "moiraflow-server"
 
 
 def build_worker(

@@ -1,4 +1,4 @@
-"""Machine-readable catalog endpoints (AI First — consumed by FlowOps Architect)."""
+"""Machine-readable catalog endpoints (AI First — consumed by MoiraFlow Architect)."""
 
 from __future__ import annotations
 

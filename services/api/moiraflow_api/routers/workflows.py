@@ -15,7 +15,7 @@ def validate(request: ValidateRequest) -> ValidateResponse:
     """Validate a workflow definition. Always returns 200; problems are in `errors`.
 
     A 200-with-errors contract (rather than 4xx) keeps the endpoint machine-friendly
-    for the UI editor and the future FlowOps Architect, which expect a structured
+    for the UI editor and the future MoiraFlow Architect, which expect a structured
     report, not an HTTP error.
     """
     result = validate_workflow(request.content, request.format)

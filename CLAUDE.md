@@ -7,19 +7,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Build in progress. `services/api/` exists with the **workflow validation core** and a minimal FastAPI app; everything else (worker, agent, frontend, docker-compose, persistence) is still to build per the roadmap. The docs are written in Spanish; the **product/UI/code is English** (i18n-ready). Treat the docs as the source of truth (marked "Borrador para arranque" / draft; design refined in the v2 ADRs — see `docs/00-README.md` changelog). Read them before scaffolding new subsystems:
 
 ### What's built (tested, lint+type clean)
-- `services/api/flowops_api/workflow/` — pure-Python validation core: Pydantic models (`models.py`, single source of truth + generated JSON Schema), `parser.py` (YAML/JSON→model), `dag.py` (Kahn cycle detection + topo order), `references.py` (declared-outputs + determinism rules), `hashing.py` (canonical sha256 for immutable versions), `validator.py` (`validate_workflow()` aggregator, never raises). Public surface re-exported from `workflow/__init__.py`.
-- `services/api/flowops_api/` — FastAPI app (`main.py`, `create_app()`): `POST /api/v1/workflows/validate` (200-with-errors contract) and `GET /api/v1/catalog/workflow-schema`.
-- `services/api/flowops_api/db/` — persistence: `base.py` (DeclarativeBase + portable types — JSONB/CITEXT/INET with Postgres variants so models run on sqlite in tests), `models.py` (full docs-03 schema, 12 tables, `tenant_id` everywhere, immutable/audit tables have no `updated_at`), `session.py` (engine/session factory). Tested on in-memory sqlite. **TODO:** Alembic migration (pairs with the docker-compose/Postgres slice, where `alembic upgrade head` can be run for real).
-- `services/worker/flowops_worker/` — the Temporal interpreter: `templating.py` (pure deterministic `{{ }}` rendering), `scheduling.py` (pure DAG readiness), `interpreter.py` (`run_dag` — pure async orchestration with an injected `run_job`, parallel fan-out, declared-output propagation), `workflow.py` (`FlowInterpreter` `@workflow.defn` thin adapter; maps per-job `timeout`/`retry` → Temporal via `durations.py`/`policies.py`), `activities.py` (`run_command_job`, `run_rest_job` with an `execute_rest` seam tested via `httpx.MockTransport`), `runtime.py` (`build_worker`). Pure core is unit-tested; `tests/test_workflow_integration.py` runs a real 2-job DAG against `WorkflowEnvironment.start_local()`. **Still TODO:** `sql` activity (depends on secrets+DB slices), replay tests in CI (ADR-0011).
+- `services/api/moiraflow_api/workflow/` — pure-Python validation core: Pydantic models (`models.py`, single source of truth + generated JSON Schema), `parser.py` (YAML/JSON→model), `dag.py` (Kahn cycle detection + topo order), `references.py` (declared-outputs + determinism rules), `hashing.py` (canonical sha256 for immutable versions), `validator.py` (`validate_workflow()` aggregator, never raises). Public surface re-exported from `workflow/__init__.py`.
+- `services/api/moiraflow_api/` — FastAPI app (`main.py`, `create_app()`): `POST /api/v1/workflows/validate` (200-with-errors contract) and `GET /api/v1/catalog/workflow-schema`.
+- `services/api/moiraflow_api/db/` — persistence: `base.py` (DeclarativeBase + portable types — JSONB/CITEXT/INET with Postgres variants so models run on sqlite in tests), `models.py` (full docs-03 schema, 12 tables, `tenant_id` everywhere, immutable/audit tables have no `updated_at`), `session.py` (engine/session factory). Tested on in-memory sqlite. **TODO:** Alembic migration (pairs with the docker-compose/Postgres slice, where `alembic upgrade head` can be run for real).
+- `services/worker/moiraflow_worker/` — the Temporal interpreter: `templating.py` (pure deterministic `{{ }}` rendering), `scheduling.py` (pure DAG readiness), `interpreter.py` (`run_dag` — pure async orchestration with an injected `run_job`, parallel fan-out, declared-output propagation), `workflow.py` (`FlowInterpreter` `@workflow.defn` thin adapter; maps per-job `timeout`/`retry` → Temporal via `durations.py`/`policies.py`), `activities.py` (`run_command_job`, `run_rest_job` with an `execute_rest` seam tested via `httpx.MockTransport`), `runtime.py` (`build_worker`). Pure core is unit-tested; `tests/test_workflow_integration.py` runs a real 2-job DAG against `WorkflowEnvironment.start_local()`. **Still TODO:** `sql` activity (depends on secrets+DB slices), replay tests in CI (ADR-0011).
 - Plan + TDD task breakdown: `docs/superpowers/plans/2026-06-24-workflow-validation-core.md`.
 
 ### Dev workflow for `services/api` (local Python is 3.10, not 3.12 — code runs on both)
 Tests run with **no editable install** (pytest `pythonpath` config). From `services/api/`:
 ```bash
 python3 -m pytest -q                          # 35 tests
-python3 -m ruff check flowops_api tests
-python3 -m black --check flowops_api tests
-python3 -m mypy flowops_api                    # strict
+python3 -m ruff check moiraflow_api tests
+python3 -m black --check moiraflow_api tests
+python3 -m mypy moiraflow_api                    # strict
 ```
 Deps present system-wide: pydantic 2.13, pyyaml, pytest, fastapi, httpx, ruff, black, mypy. `uvicorn` not installed (only needed to actually serve; tests use `TestClient`).
 
@@ -33,15 +33,15 @@ Deps present system-wide: pydantic 2.13, pyyaml, pytest, fastapi, httpx, ruff, b
 - `docs/06-roadmap-y-adr.md` — milestones (~16 weeks to MVP for 1 dev) and ADRs
 - `docs/07-repo-y-setup-dev.md` — monorepo layout, stack, docker-compose, env vars, quickstart, first tickets
 
-## What FlowOps is
+## What MoiraFlow is
 
 An "Automation Operating System" for SMBs: a workflow automation platform where workflows are defined as code (YAML/JSON), executed as durable DAGs, and can run jobs either server-side or on remote "thin agents" installed on customer machines.
 
 ## Architecture (the big picture)
 
-The single most important decision: **FlowOps does not build its own execution engine — it runs on Temporal.** Understanding how FlowOps concepts map onto Temporal is essential before touching the worker or execution code:
+The single most important decision: **MoiraFlow does not build its own execution engine — it runs on Temporal.** Understanding how MoiraFlow concepts map onto Temporal is essential before touching the worker or execution code:
 
-- A FlowOps workflow (a DAG of jobs) is **not** one Temporal workflow per definition. Instead there is **one generic Temporal Workflow ("the interpreter")** that receives a versioned workflow definition + inputs, resolves the DAG, and executes jobs in dependency order. The initial `context` is **read-only**; jobs do **not** mutate a shared blob — they declare `outputs` exposed as `jobs.<id>.outputs.*` (ADR-0013, avoids parallel-branch races).
+- A MoiraFlow workflow (a DAG of jobs) is **not** one Temporal workflow per definition. Instead there is **one generic Temporal Workflow ("the interpreter")** that receives a versioned workflow definition + inputs, resolves the DAG, and executes jobs in dependency order. The initial `context` is **read-only**; jobs do **not** mutate a shared blob — they declare `outputs` exposed as `jobs.<id>.outputs.*` (ADR-0013, avoids parallel-branch races).
 - **The interpreter must be deterministic** (or Temporal replay corrupts silently): pure DAG orchestration + pure template interpolation in workflow code; all I/O, `secret://` resolution, time, and randomness in **activities**. No non-deterministic template filters (`now()`/random). CI runs **replay tests** (ADR-0011).
 - Each **job is a Temporal Activity**. The job `type` (`command`, `rest`, `sql` in the MVP) selects which plugin/activity runs.
 - **Task queues do the routing.** Server-side jobs go to server worker queues; jobs with `run_on: agent` are enqueued on that agent's exclusive queue `agent-<agent_id>`, and only that agent picks them up.
@@ -65,7 +65,7 @@ Data flow for an execution: API starts the interpreter Temporal workflow with a 
 - **API First** — every capability exists via the API; the UI only consumes it.
 - **Plugin First** — the core depends on no concrete connector; jobs/connectors are plugins (Temporal activities) with a common contract registered in the `plugins` catalog.
 - **Workflow as Code** — YAML/JSON is the source of truth; versions are **immutable and content-hashed** (`workflow_versions` is never updated or deleted).
-- **AI First** — the engine exposes machine-readable catalog + `validate` + `simulate` (dry-run) endpoints (reserved now for the future "FlowOps Architect" AI, built in a later phase). The AI generates valid YAML/JSON; it **never** touches internal tables.
+- **AI First** — the engine exposes machine-readable catalog + `validate` + `simulate` (dry-run) endpoints (reserved now for the future "MoiraFlow Architect" AI, built in a later phase). The AI generates valid YAML/JSON; it **never** touches internal tables.
 - **Multi-tenant ready** — `tenant_id` on every business table from day 1 (MVP runs a single "default" tenant; RLS is prepared but enforced in the API layer for now). A job from one tenant must never route to another tenant's agent.
 - **Auditability** — nothing critical lives only in memory; `execution_events` (per-execution timeline) and `audit_log` (user/system governance actions) are append-only.
 
@@ -88,7 +88,7 @@ Per `docs/07`, once scaffolded the workflow is:
 cp .env.example .env                 # set secrets
 docker compose up -d                 # full local stack
 docker compose exec api alembic upgrade head            # migrations
-docker compose exec api python -m flowops_api.scripts.create_admin   # initial admin
+docker compose exec api python -m moiraflow_api.scripts.create_admin   # initial admin
 # UI http://localhost:5173 · API docs http://localhost:8000/api/v1/docs
 # Temporal UI http://localhost:8080 · MinIO http://localhost:9001
 ```

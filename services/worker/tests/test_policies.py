@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from flowops_worker.policies import build_retry_policy
+from moiraflow_worker.policies import build_retry_policy
 
 
 def test_none_retry_returns_none():
