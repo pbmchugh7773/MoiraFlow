@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            package: moiraflow_api
+          - service: worker
+            package: moiraflow_worker
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check ${{ matrix.package }} tests
+
+      - name: Format check (black)
+        run: black --check ${{ matrix.package }} tests
+
+      - name: Type check (mypy --strict)
+        run: mypy ${{ matrix.package }}
+
+      - name: Tests (pytest)
+        run: pytest -q

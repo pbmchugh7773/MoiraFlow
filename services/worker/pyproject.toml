@@ -6,6 +6,7 @@ description = "MoiraFlow Temporal worker (interpreter + server-side job activiti
 requires-python = ">=3.10"
 dependencies = [
     "temporalio>=1.8",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]

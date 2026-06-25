@@ -6,12 +6,18 @@ the dev server binary cannot be started (e.g. offline CI).
 """
 
 import asyncio
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 from moiraflow_worker.runtime import build_worker
+
+# This test downloads/starts a Temporal dev server; skip it on CI for speed and
+# determinism (the pure interpreter tests cover the orchestration logic).
+if os.getenv("CI"):
+    pytest.skip("temporal integration test skipped on CI", allow_module_level=True)
 
 temporalio_testing = pytest.importorskip("temporalio.testing")
 WorkflowEnvironment = temporalio_testing.WorkflowEnvironment
