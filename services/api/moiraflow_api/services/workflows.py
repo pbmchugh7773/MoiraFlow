@@ -181,6 +181,13 @@ def get_version(
     return version
 
 
+def set_enabled(session: Session, workflow_id: uuid.UUID, enabled: bool) -> models.Workflow:
+    workflow = get_workflow(session, workflow_id)
+    workflow.is_enabled = enabled
+    session.flush()
+    return workflow
+
+
 def list_workflows(session: Session, tenant_id: uuid.UUID) -> list[models.Workflow]:
     return list(
         session.scalars(

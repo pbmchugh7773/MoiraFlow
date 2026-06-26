@@ -23,6 +23,7 @@ from .db import models
 from .db.session import make_engine, make_session_factory
 from .services import users as user_svc
 from .services.executions import WorkflowStarter
+from .services.schedules import ScheduleManager
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -60,6 +61,14 @@ def get_workflow_starter() -> WorkflowStarter:
 
     settings = get_settings()
     return TemporalWorkflowStarter(settings.temporal_host, settings.temporal_namespace)
+
+
+def get_schedule_manager() -> ScheduleManager:
+    """The production Temporal schedule manager. Tests override this with a fake."""
+    from .temporal import TemporalScheduleManager
+
+    settings = get_settings()
+    return TemporalScheduleManager(settings.temporal_host, settings.temporal_namespace)
 
 
 def get_current_user(

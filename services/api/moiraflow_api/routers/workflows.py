@@ -12,8 +12,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import get_settings
 from ..db import models
-from ..deps import get_current_tenant, get_current_user, get_session, require_roles
+from ..deps import (
+    get_current_tenant,
+    get_current_user,
+    get_schedule_manager,
+    get_session,
+    require_roles,
+)
 from ..schemas.validation import ValidateRequest, ValidateResponse
 from ..schemas.workflows import (
     CreateWorkflowRequest,
@@ -22,9 +29,31 @@ from ..schemas.workflows import (
     WorkflowVersionOut,
 )
 from ..services import workflows as svc
+from ..services.schedules import ScheduleManager, schedule_id_for
 from ..workflow import validate_workflow
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
+
+
+def _sync_schedule(session: Session, sched: ScheduleManager, workflow: models.Workflow) -> None:
+    """Reconcile the workflow's Temporal Schedule with its cron trigger (ADR-0015)."""
+    if workflow.trigger_type != "cron":
+        return
+    schedule_id = schedule_id_for(workflow.id)
+    cron = workflow.trigger_config.get("cron")
+    if workflow.is_enabled and workflow.active_version_id and cron:
+        version = session.get(models.WorkflowVersion, workflow.active_version_id)
+        if version is not None:
+            sched.upsert(
+                schedule_id=schedule_id,
+                cron=str(cron),
+                timezone=workflow.trigger_config.get("timezone"),
+                definition=version.definition,
+                input_context={},
+                task_queue=get_settings().server_task_queue,
+            )
+    else:
+        sched.pause(schedule_id)
 
 
 @router.post("/validate", response_model=ValidateResponse)
@@ -46,9 +75,11 @@ def create_workflow(
     request: CreateWorkflowRequest,
     session: Session = Depends(get_session),
     tenant: models.Tenant = Depends(get_current_tenant),
+    sched: ScheduleManager = Depends(get_schedule_manager),
     _: models.User = Depends(require_roles("developer")),
 ) -> WorkflowOut:
     workflow = svc.create_workflow(session, tenant.id, request.content, request.format)
+    _sync_schedule(session, sched, workflow)
     return WorkflowOut.model_validate(workflow)
 
 
@@ -110,6 +141,33 @@ def activate_version(
     workflow_id: uuid.UUID,
     version: int,
     session: Session = Depends(get_session),
+    sched: ScheduleManager = Depends(get_schedule_manager),
     _: models.User = Depends(require_roles("developer")),
 ) -> WorkflowOut:
-    return WorkflowOut.model_validate(svc.activate_version(session, workflow_id, version))
+    workflow = svc.activate_version(session, workflow_id, version)
+    _sync_schedule(session, sched, workflow)
+    return WorkflowOut.model_validate(workflow)
+
+
+@router.post("/{workflow_id}/enable", response_model=WorkflowOut)
+def enable_workflow(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    sched: ScheduleManager = Depends(get_schedule_manager),
+    _: models.User = Depends(require_roles("developer")),
+) -> WorkflowOut:
+    workflow = svc.set_enabled(session, workflow_id, True)
+    _sync_schedule(session, sched, workflow)
+    return WorkflowOut.model_validate(workflow)
+
+
+@router.post("/{workflow_id}/disable", response_model=WorkflowOut)
+def disable_workflow(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    sched: ScheduleManager = Depends(get_schedule_manager),
+    _: models.User = Depends(require_roles("developer")),
+) -> WorkflowOut:
+    workflow = svc.set_enabled(session, workflow_id, False)
+    _sync_schedule(session, sched, workflow)
+    return WorkflowOut.model_validate(workflow)
