@@ -18,7 +18,13 @@ from ..deps import (
     require_roles,
 )
 from ..live import manager
-from ..schemas.executions import CreateExecutionRequest, ExecutionEventOut, ExecutionOut
+from ..schemas.executions import (
+    CreateExecutionRequest,
+    ExecutionEventOut,
+    ExecutionOut,
+    JobExecutionOut,
+)
+from ..services import audit as audit_svc
 from ..services import events as events_svc
 from ..services import executions as svc
 from ..services.executions import WorkflowStarter
@@ -45,6 +51,15 @@ def create_execution(
         triggered_by=actor.id,
         task_queue=get_settings().server_task_queue,
     )
+    audit_svc.record(
+        session,
+        tenant_id=tenant.id,
+        action="execution.launch",
+        actor_user_id=actor.id,
+        target_type="execution",
+        target_id=str(execution.id),
+        metadata={"workflow_id": str(request.workflow_id)},
+    )
     return ExecutionOut.model_validate(execution)
 
 
@@ -63,6 +78,26 @@ def replay_execution(
         starter,
         triggered_by=actor.id,
         task_queue=get_settings().server_task_queue,
+    )
+    return ExecutionOut.model_validate(execution)
+
+
+@router.post("/{execution_id}/cancel", response_model=ExecutionOut)
+def cancel_execution(
+    execution_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    tenant: models.Tenant = Depends(get_current_tenant),
+    starter: WorkflowStarter = Depends(get_workflow_starter),
+    actor: models.User = Depends(require_roles("operator", "developer")),
+) -> ExecutionOut:
+    execution = svc.cancel_execution(session, execution_id, starter)
+    audit_svc.record(
+        session,
+        tenant_id=tenant.id,
+        action="execution.cancel",
+        actor_user_id=actor.id,
+        target_type="execution",
+        target_id=str(execution_id),
     )
     return ExecutionOut.model_validate(execution)
 
@@ -95,6 +130,17 @@ def get_execution_events(
     svc.get_execution(session, execution_id)  # 404 if missing
     rows = events_svc.list_events(session, execution_id)
     return [ExecutionEventOut.model_validate(e) for e in rows]
+
+
+@router.get("/{execution_id}/jobs", response_model=list[JobExecutionOut])
+def get_execution_jobs(
+    execution_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    _: models.User = Depends(get_current_user),
+) -> list[JobExecutionOut]:
+    svc.get_execution(session, execution_id)  # 404 if missing
+    rows = events_svc.list_job_executions(session, execution_id)
+    return [JobExecutionOut.model_validate(j) for j in rows]
 
 
 @router.get("/{execution_id}/definition")

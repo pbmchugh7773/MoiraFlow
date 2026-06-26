@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
@@ -32,6 +33,10 @@ class WorkflowStarter(Protocol):
         meta: dict[str, str],
     ) -> str:
         """Start the interpreter workflow and return its Temporal run id."""
+        ...
+
+    def cancel(self, *, temporal_workflow_id: str) -> None:
+        """Request cancellation of a running workflow (no-op if already done)."""
         ...
 
 
@@ -198,6 +203,22 @@ def replay_execution(
         replay_of_execution_id=original.id,
     )
     session.add(execution)
+    session.flush()
+    return execution
+
+
+_TERMINAL = {"success", "failed", "cancelled"}
+
+
+def cancel_execution(
+    session: Session, execution_id: uuid.UUID, starter: WorkflowStarter
+) -> models.Execution:
+    execution = get_execution(session, execution_id)
+    if execution.status in _TERMINAL:
+        return execution  # already finished — nothing to cancel
+    starter.cancel(temporal_workflow_id=execution.temporal_workflow_id)
+    execution.status = "cancelled"
+    execution.finished_at = datetime.now(timezone.utc)
     session.flush()
     return execution
 

@@ -25,6 +25,7 @@ spec:
 class FakeStarter:
     def __init__(self):
         self.calls = []
+        self.cancelled = []
 
     def start(self, *, temporal_workflow_id, definition, input_context, task_queue, meta=None):
         self.calls.append(
@@ -36,6 +37,9 @@ class FakeStarter:
             }
         )
         return f"run-{len(self.calls)}"
+
+    def cancel(self, *, temporal_workflow_id):
+        self.cancelled.append(temporal_workflow_id)
 
 
 @pytest.fixture
@@ -128,6 +132,24 @@ def test_second_replay_increments_suffix(session, tenant, workflow):
     ex.replay_execution(session, tenant.id, original.id, starter)
     second = ex.replay_execution(session, tenant.id, original.id, starter)
     assert second.temporal_workflow_id.endswith("-replay-2")
+
+
+def test_cancel_running_execution(session, tenant, workflow):
+    starter = FakeStarter()
+    ex_row = ex.create_execution(session, tenant.id, workflow.id, starter)
+    cancelled = ex.cancel_execution(session, ex_row.id, starter)
+    assert cancelled.status == "cancelled"
+    assert cancelled.finished_at is not None
+    assert starter.cancelled == [ex_row.temporal_workflow_id]
+
+
+def test_cancel_terminal_execution_is_noop(session, tenant, workflow):
+    starter = FakeStarter()
+    ex_row = ex.create_execution(session, tenant.id, workflow.id, starter)
+    ex_row.status = "success"
+    session.flush()
+    ex.cancel_execution(session, ex_row.id, starter)
+    assert starter.cancelled == []  # already finished
 
 
 def test_get_unknown_execution_raises(session):

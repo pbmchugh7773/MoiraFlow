@@ -29,6 +29,7 @@ from ..schemas.workflows import (
     WorkflowVersionDetailOut,
     WorkflowVersionOut,
 )
+from ..services import audit as audit_svc
 from ..services import simulation as sim_svc
 from ..services import workflows as svc
 from ..services.schedules import ScheduleManager, schedule_id_for
@@ -94,10 +95,19 @@ def create_workflow(
     session: Session = Depends(get_session),
     tenant: models.Tenant = Depends(get_current_tenant),
     sched: ScheduleManager = Depends(get_schedule_manager),
-    _: models.User = Depends(require_roles("developer")),
+    actor: models.User = Depends(require_roles("developer")),
 ) -> WorkflowOut:
     workflow = svc.create_workflow(session, tenant.id, request.content, request.format)
     _sync_schedule(session, sched, workflow)
+    audit_svc.record(
+        session,
+        tenant_id=tenant.id,
+        action="workflow.create",
+        actor_user_id=actor.id,
+        target_type="workflow",
+        target_id=str(workflow.id),
+        metadata={"name": workflow.name},
+    )
     return WorkflowOut.model_validate(workflow)
 
 

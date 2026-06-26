@@ -75,14 +75,64 @@ def handle_event(session: Session, event: dict[str, Any]) -> models.ExecutionEve
     if event_type == "execution_started":
         execution.status = "running"
         execution.started_at = now
-    elif event_type in _TERMINAL_STATUS:
+    elif event_type in _TERMINAL_STATUS and execution.status != "cancelled":
+        # a user cancel is terminal; don't let a late failed/finished event override it
         execution.status = _TERMINAL_STATUS[event_type]
         execution.finished_at = now
         if event_type == "execution_failed":
             execution.error = event.get("payload", {})
 
+    _project_job(session, execution, event, now)
     session.flush()
     return row
+
+
+def _project_job(
+    session: Session, execution: models.Execution, event: dict[str, Any], now: datetime
+) -> None:
+    """Maintain a job_executions row per job from job_* events (attempt=1; retries
+    happen inside the activity, so per-attempt rows are a later refinement)."""
+    job_id = event.get("job_id")
+    if not job_id or not event["type"].startswith("job_"):
+        return
+    if event["type"] == "job_started":
+        session.add(
+            models.JobExecution(
+                tenant_id=execution.tenant_id,
+                execution_id=execution.id,
+                job_id=job_id,
+                job_type=str((event.get("payload") or {}).get("type", "")),
+                status="running",
+                started_at=now,
+            )
+        )
+        return
+    job = session.scalar(
+        select(models.JobExecution).where(
+            models.JobExecution.execution_id == execution.id,
+            models.JobExecution.job_id == job_id,
+        )
+    )
+    if job is None:
+        return
+    payload = event.get("payload") or {}
+    if event["type"] == "job_succeeded":
+        job.status = "success"
+        job.output = payload.get("outputs", {})
+    elif event["type"] == "job_failed":
+        job.status = "failed"
+        job.error = payload
+    job.finished_at = now
+
+
+def list_job_executions(session: Session, execution_id: uuid.UUID) -> list[models.JobExecution]:
+    return list(
+        session.scalars(
+            select(models.JobExecution)
+            .where(models.JobExecution.execution_id == execution_id)
+            .order_by(models.JobExecution.created_at)
+        )
+    )
 
 
 def list_events(session: Session, execution_id: uuid.UUID) -> list[models.ExecutionEvent]:

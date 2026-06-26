@@ -70,6 +70,16 @@ class TemporalWorkflowStarter:
         )
         return handle.first_execution_run_id or ""
 
+    def cancel(self, *, temporal_workflow_id: str) -> None:
+        asyncio.run(self._cancel(temporal_workflow_id))
+
+    async def _cancel(self, temporal_workflow_id: str) -> None:
+        client = await self._connect()
+        try:
+            await client.get_workflow_handle(temporal_workflow_id).cancel()
+        except Exception:  # pragma: no cover - already finished/absent
+            pass
+
 
 class TemporalScheduleManager:
     """Real Temporal Schedule lifecycle for cron triggers (ADR-0015)."""

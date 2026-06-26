@@ -9,6 +9,7 @@ from ..config import get_settings
 from ..db import models
 from ..deps import get_current_tenant, get_session, require_roles
 from ..schemas.secrets import PutSecretRequest, SecretKeysOut
+from ..services import audit as audit_svc
 from ..services import secrets as svc
 
 router = APIRouter(prefix="/secrets", tags=["secrets"])
@@ -34,6 +35,14 @@ def put_secret(
     svc.put_secret(
         session, get_settings().secrets_master_key, tenant.id, key, request.value, actor.id
     )
+    audit_svc.record(
+        session,
+        tenant_id=tenant.id,
+        action="secret.set",
+        actor_user_id=actor.id,
+        target_type="secret",
+        target_id=key,
+    )
     return Response(status_code=204)
 
 
@@ -42,7 +51,15 @@ def delete_secret(
     key: str,
     session: Session = Depends(get_session),
     tenant: models.Tenant = Depends(get_current_tenant),
-    _: models.User = Depends(require_roles()),
+    actor: models.User = Depends(require_roles()),
 ) -> Response:
     svc.delete_secret(session, tenant.id, key)
+    audit_svc.record(
+        session,
+        tenant_id=tenant.id,
+        action="secret.delete",
+        actor_user_id=actor.id,
+        target_type="secret",
+        target_id=key,
+    )
     return Response(status_code=204)

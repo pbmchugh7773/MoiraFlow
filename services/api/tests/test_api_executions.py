@@ -26,6 +26,10 @@ class FakeStarter:
         self.calls.append(temporal_workflow_id)
         return f"run-{len(self.calls)}"
 
+    def cancel(self, *, temporal_workflow_id):
+        self.cancelled = getattr(self, "cancelled", [])
+        self.cancelled.append(temporal_workflow_id)
+
 
 @pytest.fixture
 def starter():
@@ -103,6 +107,14 @@ def test_replay_creates_linked_execution(client, starter):
     assert replay["id"] != original["id"]
     assert replay["status"] == "running"
     assert len(starter.calls) == 2
+
+
+def test_cancel_execution_endpoint(client):
+    wid = _make_workflow(client)
+    ex = client.post("/api/v1/executions", json={"workflow_id": wid}).json()
+    resp = client.post(f"/api/v1/executions/{ex['id']}/cancel")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "cancelled"
 
 
 def test_get_unknown_execution_404(client):

@@ -121,5 +121,30 @@ def test_unknown_run_without_meta_still_ignored(session):
     assert svc.handle_event(session, _ev("job_started")) is None
 
 
+def _job_ev(type_, job_id, payload=None):
+    return {
+        "temporal_workflow_id": "wf-abc",
+        "type": type_,
+        "job_id": job_id,
+        "payload": payload or {},
+    }
+
+
+def test_job_executions_projected_from_events(session, execution):
+    svc.handle_event(session, _job_ev("job_started", "a", {"type": "command"}))
+    svc.handle_event(session, _job_ev("job_succeeded", "a", {"outputs": {"k": "v"}}))
+    svc.handle_event(session, _job_ev("job_started", "b", {"type": "rest"}))
+    svc.handle_event(session, _job_ev("job_failed", "b", {"error": "boom"}))
+
+    jobs = svc.list_job_executions(session, execution.id)
+    by_id = {j.job_id: j for j in jobs}
+    assert by_id["a"].status == "success"
+    assert by_id["a"].job_type == "command"
+    assert by_id["a"].output == {"k": "v"}
+    assert by_id["b"].status == "failed"
+    assert by_id["b"].error == {"error": "boom"}
+    assert by_id["a"].finished_at is not None
+
+
 def test_event_without_workflow_id_is_ignored(session):
     assert svc.handle_event(session, {"type": "execution_started", "payload": {}}) is None
