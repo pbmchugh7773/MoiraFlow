@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
+from ..auth.security import TokenError, decode_access_token
 from ..config import get_settings
 from ..db import models
 from ..deps import (
@@ -16,6 +17,7 @@ from ..deps import (
     get_workflow_starter,
     require_roles,
 )
+from ..live import manager
 from ..schemas.executions import CreateExecutionRequest, ExecutionEventOut, ExecutionOut
 from ..services import events as events_svc
 from ..services import executions as svc
@@ -74,3 +76,22 @@ def get_execution_events(
     svc.get_execution(session, execution_id)  # 404 if missing
     rows = events_svc.list_events(session, execution_id)
     return [ExecutionEventOut.model_validate(e) for e in rows]
+
+
+@router.websocket("/{execution_id}/stream")
+async def stream_execution(
+    websocket: WebSocket, execution_id: uuid.UUID, token: str = Query(...)
+) -> None:
+    """Live event stream for an execution. Auth via `?token=<jwt>` (WebSockets
+    can't carry an Authorization header from the browser)."""
+    try:
+        decode_access_token(token, get_settings().jwt_secret)
+    except TokenError:
+        await websocket.close(code=4401)
+        return
+    await manager.connect(str(execution_id), websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # keep the socket open; ignore input
+    except WebSocketDisconnect:
+        manager.disconnect(str(execution_id), websocket)

@@ -7,12 +7,34 @@ this layer is stateless.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
+
 from fastapi import FastAPI
 
+from .config import get_settings
+from .deps import session_factory
 from .errors import register_error_handlers
+from .live import run_event_subscriber
 from .routers import auth, catalog, executions, workflows
 
 API_PREFIX = "/api/v1"
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    task: asyncio.Task[None] | None = None
+    if settings.event_subscriber_enabled:
+        task = asyncio.create_task(run_event_subscriber(session_factory(), settings.redis_url))
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
 
 def create_app() -> FastAPI:
@@ -21,6 +43,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         docs_url=f"{API_PREFIX}/docs",
         openapi_url=f"{API_PREFIX}/openapi.json",
+        lifespan=lifespan,
     )
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(workflows.router, prefix=API_PREFIX)

@@ -28,12 +28,12 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 @lru_cache(maxsize=1)
-def _session_factory() -> sessionmaker[Session]:
+def session_factory() -> sessionmaker[Session]:
     return make_session_factory(make_engine(get_settings().database_url))
 
 
 def get_session() -> Iterator[Session]:
-    session = _session_factory()()
+    session = session_factory()()
     try:
         yield session
         session.commit()

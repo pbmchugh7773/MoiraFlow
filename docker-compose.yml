@@ -50,6 +50,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       TEMPORAL_HOST: ${TEMPORAL_HOST}
+      MOIRAFLOW_EVENT_SUBSCRIBER: "1"
     ports:
       - "${API_PORT:-8001}:8000"
     depends_on:
