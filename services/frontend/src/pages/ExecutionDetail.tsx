@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, streamUrl, type Execution, type ExecutionEvent, type JobDef } from "../api";
+import { canLaunch, useAuth } from "../auth";
 import { DagView, StatusBadge } from "../components";
 
 interface Item { type: string; job_id: string | null; payload: Record<string, unknown> }
@@ -14,6 +15,8 @@ const fromStored = (e: ExecutionEvent): Item => ({
 
 export function ExecutionDetail() {
   const { id = "" } = useParams();
+  const { user } = useAuth();
+  const nav = useNavigate();
   const [exec, setExec] = useState<Execution | null>(null);
   const [events, setEvents] = useState<Item[]>([]);
   const [jobs, setJobs] = useState<JobDef[]>([]);
@@ -64,6 +67,11 @@ export function ExecutionDetail() {
         <div className="row" style={{ gap: 14 }}>
           {live && <span className="status running"><span className="dot" style={{ background: "currentColor" }} />live</span>}
           <StatusBadge status={status} />
+          {canLaunch(user?.role) && status !== "running" && (
+            <button className="btn" onClick={() => api.replay(id).then((e) => nav(`/executions/${e.id}`)).catch(() => {})}>
+              Replay
+            </button>
+          )}
         </div>
       </div>
 

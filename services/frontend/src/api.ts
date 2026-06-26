@@ -83,6 +83,7 @@ export const api = {
   getExecution: (id: string) => request<Execution>(`/executions/${id}`),
   launch: (workflow_id: string) =>
     request<Execution>("/executions", { method: "POST", body: JSON.stringify({ workflow_id }) }),
+  replay: (id: string) => request<Execution>(`/executions/${id}/replay`, { method: "POST" }),
   getEvents: (id: string) => request<ExecutionEvent[]>(`/executions/${id}/events`),
   getExecutionDefinition: (id: string) =>
     request<WorkflowDefinition>(`/executions/${id}/definition`),

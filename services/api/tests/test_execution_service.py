@@ -105,6 +105,26 @@ def test_workflow_without_active_version_raises(session, tenant):
         ex.create_execution(session, tenant.id, wf.id, FakeStarter())
 
 
+def test_replay_creates_new_execution_linked_to_original(session, tenant, workflow):
+    starter = FakeStarter()
+    original = ex.create_execution(session, tenant.id, workflow.id, starter, input_context={"x": 1})
+    replay = ex.replay_execution(session, tenant.id, original.id, starter)
+    assert replay.id != original.id
+    assert replay.replay_of_execution_id == original.id
+    assert replay.trigger_source == "replay"
+    assert replay.input_context == {"x": 1}
+    assert replay.temporal_workflow_id.endswith("-replay-1")
+    assert len(starter.calls) == 2
+
+
+def test_second_replay_increments_suffix(session, tenant, workflow):
+    starter = FakeStarter()
+    original = ex.create_execution(session, tenant.id, workflow.id, starter)
+    ex.replay_execution(session, tenant.id, original.id, starter)
+    second = ex.replay_execution(session, tenant.id, original.id, starter)
+    assert second.temporal_workflow_id.endswith("-replay-2")
+
+
 def test_get_unknown_execution_raises(session):
     with pytest.raises(ex.ExecutionNotFoundError):
         ex.get_execution(session, uuid.uuid4())

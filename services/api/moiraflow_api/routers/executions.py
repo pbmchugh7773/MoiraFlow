@@ -48,6 +48,25 @@ def create_execution(
     return ExecutionOut.model_validate(execution)
 
 
+@router.post("/{execution_id}/replay", status_code=201, response_model=ExecutionOut)
+def replay_execution(
+    execution_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    tenant: models.Tenant = Depends(get_current_tenant),
+    starter: WorkflowStarter = Depends(get_workflow_starter),
+    actor: models.User = Depends(require_roles("operator", "developer")),
+) -> ExecutionOut:
+    execution = svc.replay_execution(
+        session,
+        tenant.id,
+        execution_id,
+        starter,
+        triggered_by=actor.id,
+        task_queue=get_settings().server_task_queue,
+    )
+    return ExecutionOut.model_validate(execution)
+
+
 @router.get("", response_model=list[ExecutionOut])
 def list_executions(
     workflow_id: uuid.UUID | None = None,

@@ -14,7 +14,7 @@ import json
 import uuid
 from typing import Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import models
@@ -124,6 +124,65 @@ def create_execution(
         triggered_by=triggered_by,
         status="running",
         input_context=input_context,
+    )
+    session.add(execution)
+    session.flush()
+    return execution
+
+
+def replay_execution(
+    session: Session,
+    tenant_id: uuid.UUID,
+    execution_id: uuid.UUID,
+    starter: WorkflowStarter,
+    *,
+    triggered_by: uuid.UUID | None = None,
+    task_queue: str = "moiraflow-server",
+) -> models.Execution:
+    """Re-run a past execution: same version + inputs, a fresh durable workflow.
+
+    A replay never reuses mutated history — it starts a new interpreter workflow
+    with the same versioned definition + inputs (ADR-0001/0014).
+    """
+    original = get_execution(session, execution_id)
+    version = session.get(models.WorkflowVersion, original.workflow_version_id)
+    if version is None:  # pragma: no cover - FK guards this
+        raise ExecutionNotFoundError("original version missing")
+
+    replay_count = (
+        session.scalar(
+            select(func.count())
+            .select_from(models.Execution)
+            .where(models.Execution.replay_of_execution_id == original.id)
+        )
+        or 0
+    )
+    temporal_workflow_id = f"{original.temporal_workflow_id}-replay-{replay_count + 1}"
+    existing = session.scalar(
+        select(models.Execution).where(
+            models.Execution.temporal_workflow_id == temporal_workflow_id
+        )
+    )
+    if existing is not None:
+        return existing
+
+    run_id = starter.start(
+        temporal_workflow_id=temporal_workflow_id,
+        definition=version.definition,
+        input_context=original.input_context,
+        task_queue=task_queue,
+    )
+    execution = models.Execution(
+        tenant_id=tenant_id,
+        workflow_id=original.workflow_id,
+        workflow_version_id=original.workflow_version_id,
+        temporal_workflow_id=temporal_workflow_id,
+        temporal_run_id=run_id,
+        trigger_source="replay",
+        triggered_by=triggered_by,
+        status="running",
+        input_context=original.input_context,
+        replay_of_execution_id=original.id,
     )
     session.add(execution)
     session.flush()

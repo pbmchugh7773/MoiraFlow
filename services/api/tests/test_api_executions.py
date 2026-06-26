@@ -94,6 +94,17 @@ def test_launch_unknown_workflow_404(client):
     assert resp.json()["error"]["code"] == "not_found"
 
 
+def test_replay_creates_linked_execution(client, starter):
+    wid = _make_workflow(client)
+    original = client.post("/api/v1/executions", json={"workflow_id": wid}).json()
+    resp = client.post(f"/api/v1/executions/{original['id']}/replay")
+    assert resp.status_code == 201, resp.text
+    replay = resp.json()
+    assert replay["id"] != original["id"]
+    assert replay["status"] == "running"
+    assert len(starter.calls) == 2
+
+
 def test_get_unknown_execution_404(client):
     resp = client.get("/api/v1/executions/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404
