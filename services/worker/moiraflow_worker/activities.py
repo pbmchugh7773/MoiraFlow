@@ -10,12 +10,23 @@ is orthogonal to this execution contract.
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Callable
 from typing import Any
 
 import httpx
 from temporalio import activity
 
+from .events import get_redis, publish_to_redis
 from .interpreter import JobRequest, JobResult
+
+
+@activity.defn(name="publish_event")
+def publish_event(event: dict[str, Any]) -> None:
+    """Best-effort: publish a lifecycle event to Redis; never fail the workflow."""
+    try:
+        publish_to_redis(get_redis(), event)
+    except Exception:  # pragma: no cover - depends on Redis availability
+        activity.logger.warning("event publish failed", exc_info=True)
 
 
 @activity.defn(name="run_command_job")
@@ -71,4 +82,4 @@ async def run_rest_job(request: JobRequest) -> JobResult:
 # Activities registered on the server-side worker (and the local "agent" worker).
 # `sql` arrives after the secrets+DB slices (its `connection: secret://...` depends
 # on secret resolution, which is not built yet).
-SERVER_ACTIVITIES = [run_command_job, run_rest_job]
+SERVER_ACTIVITIES: list[Callable[..., Any]] = [run_command_job, run_rest_job, publish_event]

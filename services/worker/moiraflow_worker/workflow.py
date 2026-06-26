@@ -20,6 +20,8 @@ with workflow.unsafe.imports_passed_through():
 
 # Default per-activity ceiling; per-job `timeout` overrides this in a later slice.
 _DEFAULT_ACTIVITY_TIMEOUT = timedelta(minutes=5)
+# Event publishing is best-effort: short timeout, no retry, never blocks progress.
+_EVENT_TIMEOUT = timedelta(seconds=10)
 
 
 @workflow.defn(name="FlowInterpreter")
@@ -28,6 +30,8 @@ class FlowInterpreter:
     async def run(
         self, definition: dict[str, Any], input_context: dict[str, Any]
     ) -> dict[str, Any]:
+        workflow_id = workflow.info().workflow_id
+
         async def run_job(request: JobRequest) -> JobResult:
             task_queue = None  # None => the workflow's own (server) task queue
             if request.run_on == "agent":
@@ -44,7 +48,15 @@ class FlowInterpreter:
             )
             return cast(JobResult, result)
 
-        return await run_dag(definition, input_context, run_job)
+        async def emit(event: dict[str, Any]) -> None:
+            # Lightweight local activity; correlate to the execution via workflow id.
+            await workflow.execute_local_activity(
+                "publish_event",
+                {**event, "temporal_workflow_id": workflow_id},
+                start_to_close_timeout=_EVENT_TIMEOUT,
+            )
+
+        return await run_dag(definition, input_context, run_job, emit=emit)
 
 
 def _agent_task_queue(request: JobRequest) -> str:
