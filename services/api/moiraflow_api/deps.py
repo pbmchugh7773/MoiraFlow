@@ -60,7 +60,9 @@ def get_workflow_starter() -> WorkflowStarter:
     from .temporal import TemporalWorkflowStarter
 
     settings = get_settings()
-    return TemporalWorkflowStarter(settings.temporal_host, settings.temporal_namespace)
+    return TemporalWorkflowStarter(
+        settings.temporal_host, settings.temporal_namespace, settings.secrets_master_key
+    )
 
 
 def get_schedule_manager() -> ScheduleManager:
@@ -68,7 +70,9 @@ def get_schedule_manager() -> ScheduleManager:
     from .temporal import TemporalScheduleManager
 
     settings = get_settings()
-    return TemporalScheduleManager(settings.temporal_host, settings.temporal_namespace)
+    return TemporalScheduleManager(
+        settings.temporal_host, settings.temporal_namespace, settings.secrets_master_key
+    )
 
 
 def get_current_user(

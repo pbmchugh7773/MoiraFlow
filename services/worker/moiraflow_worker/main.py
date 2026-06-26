@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from temporalio.client import Client
 
+from .encryption import data_converter
 from .runtime import SERVER_TASK_QUEUE, build_worker
 
 
@@ -17,7 +18,9 @@ async def _connect_with_retry(
     last_error: Exception | None = None
     for _ in range(attempts):
         try:
-            return await Client.connect(address, namespace=namespace)
+            return await Client.connect(
+                address, namespace=namespace, data_converter=data_converter()
+            )
         except Exception as exc:  # Temporal may not be ready yet at startup
             last_error = exc
             await asyncio.sleep(delay)

@@ -12,6 +12,7 @@ from pathlib import Path
 from temporalio.client import WorkflowHistory
 from temporalio.worker import Replayer
 
+from moiraflow_worker.encryption import data_converter
 from moiraflow_worker.workflow import FlowInterpreter
 
 FIXTURE = Path(__file__).parent / "fixtures" / "interpreter_history.json"
@@ -19,6 +20,8 @@ FIXTURE = Path(__file__).parent / "fixtures" / "interpreter_history.json"
 
 def test_interpreter_replays_recorded_history_deterministically():
     history = WorkflowHistory.from_json("replay-check", FIXTURE.read_text())
-    replayer = Replayer(workflows=[FlowInterpreter])
+    # The codec passes plaintext payloads through, so this works for histories
+    # captured before or after payload encryption (ADR-0016) was enabled.
+    replayer = Replayer(workflows=[FlowInterpreter], data_converter=data_converter())
     # Raises on any non-determinism / incompatible change; returns normally otherwise.
     asyncio.run(replayer.replay_workflow(history))

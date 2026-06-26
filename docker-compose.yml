@@ -73,7 +73,9 @@ services:
         condition: service_started
 
   # Local "thin agent": activities-only worker on agent-local; runs only `command`.
-  # Intentionally has NO DB / secret access (ADR-0013) — it never resolves secrets.
+  # No DB access (never resolves secrets). Shares SECRETS_MASTER_KEY only for the
+  # Temporal payload codec (ADR-0016); the *remote* agent (Hito 5) will instead use
+  # per-agent envelope encryption (ADR-0013) and never hold this key.
   agent:
     build:
       context: .
@@ -82,6 +84,7 @@ services:
     environment:
       TEMPORAL_HOST: ${TEMPORAL_HOST}
       TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
     depends_on:
       temporal:
         condition: service_started

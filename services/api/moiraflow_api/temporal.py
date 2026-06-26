@@ -21,13 +21,23 @@ from temporalio.client import (
 )
 from temporalio.common import WorkflowIDReusePolicy
 
+from .encryption import data_converter
+
 INTERPRETER_WORKFLOW = "FlowInterpreter"
 
 
 class TemporalWorkflowStarter:
-    def __init__(self, address: str, namespace: str = "default") -> None:
+    def __init__(self, address: str, namespace: str, master_key: str) -> None:
         self._address = address
         self._namespace = namespace
+        self._master_key = master_key
+
+    async def _connect(self) -> Client:
+        return await Client.connect(
+            self._address,
+            namespace=self._namespace,
+            data_converter=data_converter(self._master_key),
+        )
 
     def start(
         self,
@@ -50,7 +60,7 @@ class TemporalWorkflowStarter:
         task_queue: str,
         meta: dict[str, str],
     ) -> str:
-        client = await Client.connect(self._address, namespace=self._namespace)
+        client = await self._connect()
         handle = await client.start_workflow(
             INTERPRETER_WORKFLOW,
             args=[definition, input_context, meta],
@@ -64,9 +74,17 @@ class TemporalWorkflowStarter:
 class TemporalScheduleManager:
     """Real Temporal Schedule lifecycle for cron triggers (ADR-0015)."""
 
-    def __init__(self, address: str, namespace: str = "default") -> None:
+    def __init__(self, address: str, namespace: str, master_key: str) -> None:
         self._address = address
         self._namespace = namespace
+        self._master_key = master_key
+
+    async def _connect(self) -> Client:
+        return await Client.connect(
+            self._address,
+            namespace=self._namespace,
+            data_converter=data_converter(self._master_key),
+        )
 
     def upsert(
         self,
@@ -99,7 +117,7 @@ class TemporalScheduleManager:
         task_queue: str,
         meta: dict[str, str],
     ) -> None:
-        client = await Client.connect(self._address, namespace=self._namespace)
+        client = await self._connect()
         schedule = Schedule(
             action=ScheduleActionStartWorkflow(
                 INTERPRETER_WORKFLOW,
@@ -120,7 +138,7 @@ class TemporalScheduleManager:
             await handle.update(_update)
 
     async def _act(self, schedule_id: str, action: str) -> None:
-        client = await Client.connect(self._address, namespace=self._namespace)
+        client = await self._connect()
         handle = client.get_schedule_handle(schedule_id)
         try:
             if action == "pause":
