@@ -66,6 +66,21 @@ export const api = {
 
   listWorkflows: () => request<Workflow[]>("/workflows"),
   getWorkflow: (id: string) => request<Workflow>(`/workflows/${id}`),
+  deleteWorkflow: (id: string) => request<void>(`/workflows/${id}`, { method: "DELETE" }),
+  enableWorkflow: (id: string) => request<Workflow>(`/workflows/${id}/enable`, { method: "POST" }),
+  disableWorkflow: (id: string) =>
+    request<Workflow>(`/workflows/${id}/disable`, { method: "POST" }),
+
+  listUsers: () => request<User[]>("/users"),
+  createUser: (email: string, password: string, role: Role) =>
+    request<User>("/users", { method: "POST", body: JSON.stringify({ email, password, role }) }),
+  setUserActive: (id: string, active: boolean) =>
+    request<User>(`/users/${id}/${active ? "activate" : "deactivate"}`, { method: "POST" }),
+
+  listSecretKeys: () => request<{ keys: string[] }>("/secrets"),
+  putSecret: (key: string, value: string) =>
+    request<void>(`/secrets/${key}`, { method: "PUT", body: JSON.stringify({ value }) }),
+  deleteSecret: (key: string) => request<void>(`/secrets/${key}`, { method: "DELETE" }),
   createWorkflow: (content: string, format: "yaml" | "json") =>
     request<Workflow>("/workflows", { method: "POST", body: JSON.stringify({ content, format }) }),
   listVersions: (id: string) => request<WorkflowVersion[]>(`/workflows/${id}/versions`),
@@ -73,6 +88,7 @@ export const api = {
     request<WorkflowVersion & { definition: WorkflowDefinition }>(`/workflows/${id}/versions/${version}`),
   activate: (id: string, version: number) =>
     request<Workflow>(`/workflows/${id}/activate/${version}`, { method: "POST" }),
+  exportWorkflow: (id: string) => `${BASE}/workflows/${id}/export?format=yaml`,
   validate: (content: string, format: "yaml" | "json") =>
     request<ValidationResult>("/workflows/validate", {
       method: "POST", body: JSON.stringify({ content, format }),

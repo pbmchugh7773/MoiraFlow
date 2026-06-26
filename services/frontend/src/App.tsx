@@ -5,6 +5,8 @@ import { Workflows } from "./pages/Workflows";
 import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { Executions } from "./pages/Executions";
 import { ExecutionDetail } from "./pages/ExecutionDetail";
+import { Users } from "./pages/Users";
+import { Secrets } from "./pages/Secrets";
 
 function Wordmark() {
   return (
@@ -28,6 +30,10 @@ function Shell() {
         <nav className="nav">
           <NavLink to="/workflows" className={({ isActive }) => (isActive ? "active" : "")}>Workflows</NavLink>
           <NavLink to="/executions" className={({ isActive }) => (isActive ? "active" : "")}>Executions</NavLink>
+          {user?.role === "admin" && <>
+            <NavLink to="/secrets" className={({ isActive }) => (isActive ? "active" : "")}>Secrets</NavLink>
+            <NavLink to="/users" className={({ isActive }) => (isActive ? "active" : "")}>Users</NavLink>
+          </>}
         </nav>
         <div className="grow" />
         <div className="stack" style={{ gap: 8 }}>
@@ -58,6 +64,8 @@ export function App() {
         <Route path="/workflows/:id" element={<WorkflowDetail />} />
         <Route path="/executions" element={<Executions />} />
         <Route path="/executions/:id" element={<ExecutionDetail />} />
+        <Route path="/secrets" element={<Secrets />} />
+        <Route path="/users" element={<Users />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

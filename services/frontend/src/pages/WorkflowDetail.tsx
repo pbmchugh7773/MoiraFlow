@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, ApiError, type Execution, type JobDef, type Workflow, type WorkflowVersion } from "../api";
-import { canLaunch, useAuth } from "../auth";
+import { api, ApiError, token, type Execution, type JobDef, type Workflow, type WorkflowVersion } from "../api";
+import { canLaunch, canWrite, useAuth } from "../auth";
 import { DagView, StatusBadge } from "../components";
 
 export function WorkflowDetail() {
@@ -39,6 +39,16 @@ export function WorkflowDetail() {
     }
   };
 
+  const exportYaml = async () => {
+    const res = await fetch(api.exportWorkflow(id), {
+      headers: { Authorization: `Bearer ${token.get()}` },
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([await res.text()], { type: "text/yaml" }));
+    a.download = `${wf?.name ?? "workflow"}.yaml`;
+    a.click();
+  };
+
   if (err && !wf) return <div className="empty">{err}</div>;
   if (!wf) return <div className="empty">Loading…</div>;
 
@@ -50,9 +60,23 @@ export function WorkflowDetail() {
           <h1 className="page-title">{wf.name}</h1>
           {wf.description && <p className="dim" style={{ marginTop: 6 }}>{wf.description}</p>}
         </div>
-        {canLaunch(user?.role) && (
-          <button className="btn btn-gold" onClick={launch} disabled={!wf.active_version_id}>Launch</button>
-        )}
+        <div className="row" style={{ gap: 10 }}>
+          {canWrite(user?.role) && (
+            <button className="btn" onClick={() =>
+              (wf.is_enabled ? api.disableWorkflow(id) : api.enableWorkflow(id)).then(reload)}>
+              {wf.is_enabled ? "Disable" : "Enable"}
+            </button>
+          )}
+          <button className="btn" onClick={exportYaml}>Export</button>
+          {canWrite(user?.role) && (
+            <button className="btn" style={{ color: "var(--fail)" }} onClick={() => {
+              if (confirm(`Delete workflow "${wf.name}"?`)) api.deleteWorkflow(id).then(() => nav("/workflows"));
+            }}>Delete</button>
+          )}
+          {canLaunch(user?.role) && (
+            <button className="btn btn-gold" onClick={launch} disabled={!wf.active_version_id}>Launch</button>
+          )}
+        </div>
       </div>
       {err && <div className="err" style={{ marginBottom: 16 }}>{err}</div>}
 
@@ -71,7 +95,7 @@ export function WorkflowDetail() {
 
       <Section title="Versions">
         <table className="table">
-          <thead><tr><th>Version</th><th>Hash</th><th>Format</th><th>Created</th></tr></thead>
+          <thead><tr><th>Version</th><th>Hash</th><th>Format</th><th>Created</th><th></th></tr></thead>
           <tbody>
             {versions.map((v) => (
               <tr key={v.id}>
@@ -79,6 +103,12 @@ export function WorkflowDetail() {
                 <td className="mono dim">{v.definition_hash.slice(0, 12)}</td>
                 <td className="dim">{v.source_format}</td>
                 <td className="dim">{new Date(v.created_at).toLocaleString()}</td>
+                <td style={{ textAlign: "right" }}>
+                  {wf.active_version_id !== v.id && canWrite(user?.role) && (
+                    <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 12 }}
+                      onClick={() => api.activate(id, v.version).then(reload)}>Activate</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
