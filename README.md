@@ -17,13 +17,23 @@ docker compose exec api python -m moiraflow_api.scripts.create_admin   # first a
 
 Then open:
 
+Then start the web UI (Vite dev server):
+
+```bash
+cd services/frontend && npm install && npm run dev   # http://localhost:5173
+```
+
+Open:
+
 | What | URL | Notes |
 |------|-----|-------|
+| **Web UI** | http://localhost:5173 | log in, author/launch workflows, watch executions live |
 | **API docs (Swagger)** | http://localhost:8001/api/v1/docs | log in, then `Authorize` with the token |
 | **Temporal UI** | http://localhost:8233 | watch workflow executions |
 | **MinIO console** | http://localhost:9001 | `minioadmin` / `minioadmin` |
 
 Default admin: `admin@moiraflow.local` / `admin` (override via `ADMIN_EMAIL`/`ADMIN_PASSWORD`).
+The UI reads `VITE_API_URL` (defaults to the compose API port `8001`).
 
 ### Try it (curl)
 

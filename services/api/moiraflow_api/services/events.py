@@ -33,11 +33,14 @@ def handle_event(session: Session, event: dict[str, Any]) -> models.ExecutionEve
         return None
 
     event_type = event["type"]
+    payload = dict(event.get("payload") or {})
+    if event.get("job_id"):  # keep which job the event belongs to
+        payload["job_id"] = event["job_id"]
     row = models.ExecutionEvent(
         tenant_id=execution.tenant_id,
         execution_id=execution.id,
         event_type=event_type,
-        payload=event.get("payload", {}),
+        payload=payload,
     )
     session.add(row)
 

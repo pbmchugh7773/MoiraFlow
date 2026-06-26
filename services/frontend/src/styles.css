@@ -1,0 +1,200 @@
+/* MoiraFlow — the loom of the Fates. Dark, industrial control-plane with a single
+   golden-thread accent. Editorial serif wordmark; Plex Sans/Mono for the machine. */
+
+:root {
+  --ink: #100f12;
+  --ink-2: #16141a;
+  --panel: #1a1820;
+  --panel-2: #211e28;
+  --line: #2c2833;
+  --line-soft: rgba(201, 168, 106, 0.14);
+  --text: #ece8e1;
+  --text-dim: #9b9488;
+  --text-faint: #6a6358;
+  --gold: #c9a86a;
+  --gold-bright: #e6c585;
+  --thread: rgba(201, 168, 106, 0.5);
+
+  --ok: #7fb98f;
+  --run: #d8b46a;
+  --fail: #d4897a;
+  --pending: #8a857c;
+
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.8);
+
+  --font-display: "Fraunces Variable", Georgia, serif;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--ink);
+  /* layered radial glow + warm vignette */
+  background-image:
+    radial-gradient(900px 500px at 78% -10%, rgba(201, 168, 106, 0.08), transparent 60%),
+    radial-gradient(700px 600px at 0% 110%, rgba(127, 185, 143, 0.05), transparent 55%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* fine grain overlay for texture */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+a { color: inherit; text-decoration: none; }
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+
+.display { font-family: var(--font-display); font-optical-sizing: auto; }
+.mono { font-family: var(--font-mono); }
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+
+/* ---- wordmark ---- */
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+}
+.wordmark .moira { color: var(--text); }
+.wordmark .flow { color: var(--gold); font-style: italic; }
+
+/* ---- buttons ---- */
+.btn {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 9px 15px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.06s;
+}
+.btn:hover { border-color: var(--thread); background: #262230; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-gold {
+  color: #1a1206;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  border-color: var(--gold);
+  font-weight: 600;
+}
+.btn-gold:hover { background: var(--gold-bright); border-color: var(--gold-bright); }
+.btn-ghost { background: transparent; }
+
+/* ---- inputs ---- */
+.input, .textarea, .select {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.18s;
+}
+.input:focus, .textarea:focus { border-color: var(--gold); }
+.textarea { font-family: var(--font-mono); font-size: 13px; line-height: 1.55; resize: vertical; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); }
+
+/* ---- panels / cards ---- */
+.panel {
+  background: linear-gradient(180deg, var(--panel), var(--ink-2));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.hairline { height: 1px; background: linear-gradient(90deg, transparent, var(--thread), transparent); border: 0; }
+
+/* ---- status threads ---- */
+.status { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; letter-spacing: 0.02em; }
+.status .dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 0 currentColor; }
+.status.success { color: var(--ok); }
+.status.failed { color: var(--fail); }
+.status.running { color: var(--run); }
+.status.pending, .status.cancelled { color: var(--pending); }
+.status.running .dot { animation: pulse 1.4s infinite; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(216, 180, 106, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(216, 180, 106, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(216, 180, 106, 0); }
+}
+
+/* ---- tables ---- */
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.table th {
+  text-align: left; font-weight: 500; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-faint); padding: 11px 16px; border-bottom: 1px solid var(--line);
+}
+.table td { padding: 13px 16px; border-bottom: 1px solid var(--ink-2); }
+.table tr { transition: background 0.14s; }
+.table tbody tr:hover { background: rgba(201, 168, 106, 0.04); cursor: pointer; }
+.pill { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); background: var(--ink-2); border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px; }
+
+/* ---- layout shell ---- */
+.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100%; }
+.sidebar { border-right: 1px solid var(--line); padding: 22px 18px; display: flex; flex-direction: column; gap: 28px; position: sticky; top: 0; height: 100vh; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav a {
+  font-size: 13.5px; color: var(--text-dim); padding: 9px 12px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 10px; transition: color 0.15s, background 0.15s; border: 1px solid transparent;
+}
+.nav a:hover { color: var(--text); background: rgba(201, 168, 106, 0.05); }
+.nav a.active { color: var(--text); background: var(--panel); border-color: var(--line); }
+.nav a.active::before { content: ""; width: 3px; height: 14px; background: var(--gold); border-radius: 2px; margin-left: -6px; }
+
+.main { padding: 36px 48px 64px; max-width: 1180px; }
+.page-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 26px; gap: 20px; }
+.page-title { font-family: var(--font-display); font-size: 30px; letter-spacing: -0.02em; }
+.eyebrow { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
+
+/* ---- login ---- */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-card { width: 100%; max-width: 400px; padding: 38px 34px; }
+.field { margin-bottom: 16px; }
+.field .label { display: block; margin-bottom: 7px; }
+
+/* ---- misc ---- */
+.row { display: flex; gap: 12px; align-items: center; }
+.between { justify-content: space-between; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.grow { flex: 1; }
+.err { color: var(--fail); font-size: 13px; }
+.empty { color: var(--text-faint); font-size: 14px; padding: 40px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); }
+
+/* event timeline */
+.timeline { position: relative; padding-left: 22px; }
+.timeline::before { content: ""; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 1px; background: linear-gradient(var(--thread), transparent); }
+.tl-item { position: relative; padding: 8px 0; font-size: 13px; }
+.tl-item::before { content: ""; position: absolute; left: -19px; top: 13px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px rgba(201,168,106,0.6); }
+.tl-type { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+.tl-meta { color: var(--text-faint); font-size: 12px; }
+
+/* react-flow theming hooks */
+.rf-wrap { height: 340px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background:
+  radial-gradient(circle at 50% 40%, rgba(201,168,106,0.05), transparent 70%), var(--ink-2); }

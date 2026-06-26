@@ -12,6 +12,7 @@ import contextlib
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .deps import session_factory
@@ -44,6 +45,12 @@ def create_app() -> FastAPI:
         docs_url=f"{API_PREFIX}/docs",
         openapi_url=f"{API_PREFIX}/openapi.json",
         lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(workflows.router, prefix=API_PREFIX)
