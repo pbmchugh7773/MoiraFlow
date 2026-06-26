@@ -26,3 +26,12 @@ class ExecutionOut(BaseModel):
     status: str
     input_context: dict[str, Any]
     created_at: datetime
+
+
+class ExecutionEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    event_type: str
+    payload: dict[str, Any]
+    job_execution_id: uuid.UUID | None
+    created_at: datetime

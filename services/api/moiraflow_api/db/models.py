@@ -131,7 +131,9 @@ class JobExecution(Base):
 
 class ExecutionEvent(Base):
     __tablename__ = "execution_events"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"))
     execution_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("executions.id"))
     job_execution_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job_executions.id"))
@@ -197,7 +199,9 @@ class Secret(Base, TimestampMixin):
 
 class AuditLog(Base):
     __tablename__ = "audit_log"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+    )
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"))
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(100))

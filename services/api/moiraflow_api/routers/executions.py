@@ -16,7 +16,8 @@ from ..deps import (
     get_workflow_starter,
     require_roles,
 )
-from ..schemas.executions import CreateExecutionRequest, ExecutionOut
+from ..schemas.executions import CreateExecutionRequest, ExecutionEventOut, ExecutionOut
+from ..services import events as events_svc
 from ..services import executions as svc
 from ..services.executions import WorkflowStarter
 
@@ -62,3 +63,14 @@ def get_execution(
     _: models.User = Depends(get_current_user),
 ) -> ExecutionOut:
     return ExecutionOut.model_validate(svc.get_execution(session, execution_id))
+
+
+@router.get("/{execution_id}/events", response_model=list[ExecutionEventOut])
+def get_execution_events(
+    execution_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    _: models.User = Depends(get_current_user),
+) -> list[ExecutionEventOut]:
+    svc.get_execution(session, execution_id)  # 404 if missing
+    rows = events_svc.list_events(session, execution_id)
+    return [ExecutionEventOut.model_validate(e) for e in rows]
