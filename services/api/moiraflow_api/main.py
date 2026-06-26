@@ -18,7 +18,7 @@ from .config import get_settings
 from .deps import session_factory
 from .errors import register_error_handlers
 from .live import run_event_subscriber
-from .routers import auth, catalog, executions, workflows
+from .routers import auth, catalog, executions, secrets, workflows
 
 API_PREFIX = "/api/v1"
 
@@ -55,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(workflows.router, prefix=API_PREFIX)
     app.include_router(executions.router, prefix=API_PREFIX)
+    app.include_router(secrets.router, prefix=API_PREFIX)
     app.include_router(catalog.router, prefix=API_PREFIX)
     register_error_handlers(app)
     return app

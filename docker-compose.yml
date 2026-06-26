@@ -66,6 +66,8 @@ services:
     env_file: .env
     environment:
       TEMPORAL_HOST: ${TEMPORAL_HOST}
+      DATABASE_URL: ${DATABASE_URL}
+      SECRETS_MASTER_KEY: ${SECRETS_MASTER_KEY}
     depends_on:
       temporal:
         condition: service_started

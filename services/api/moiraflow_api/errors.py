@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from .auth.exceptions import AuthError
 from .services import executions as ex
+from .services import secrets as sec
 from .services import workflows as wf
 
 
@@ -51,3 +52,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AuthError)
     async def _auth(_: Request, exc: AuthError) -> JSONResponse:
         return _envelope(exc.status_code, exc.code, exc.message)
+
+    @app.exception_handler(sec.SecretNotFoundError)
+    async def _secret_missing(_: Request, exc: sec.SecretNotFoundError) -> JSONResponse:
+        return _envelope(404, "not_found", str(exc))

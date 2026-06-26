@@ -18,6 +18,7 @@ from temporalio import activity
 
 from .events import get_redis, publish_to_redis
 from .interpreter import JobRequest, JobResult
+from .secrets import redact, resolve_reference
 
 
 @activity.defn(name="publish_event")
@@ -79,7 +80,31 @@ async def run_rest_job(request: JobRequest) -> JobResult:
     return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec))
 
 
+@activity.defn(name="run_sql_job")
+def run_sql_job(request: JobRequest) -> JobResult:
+    """Run a SQL statement against a connection. `connection` is a DSN or a
+    `secret://<key>` resolved server-side; secret values are redacted from errors."""
+    from sqlalchemy import create_engine, text
+
+    inputs = request.inputs
+    dsn = resolve_reference(str(inputs["connection"]), request.tenant_id)
+    statement = str(inputs["statement"])
+    params = inputs.get("params") or {}
+    engine = create_engine(dsn)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(statement), params)
+    except Exception as exc:
+        raise RuntimeError(f"sql job failed: {redact(str(exc))}") from None
+    finally:
+        engine.dispose()
+    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec))
+
+
 # Activities registered on the server-side worker (and the local "agent" worker).
-# `sql` arrives after the secrets+DB slices (its `connection: secret://...` depends
-# on secret resolution, which is not built yet).
-SERVER_ACTIVITIES: list[Callable[..., Any]] = [run_command_job, run_rest_job, publish_event]
+SERVER_ACTIVITIES: list[Callable[..., Any]] = [
+    run_command_job,
+    run_rest_job,
+    run_sql_job,
+    publish_event,
+]

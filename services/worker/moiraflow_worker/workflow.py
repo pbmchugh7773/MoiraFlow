@@ -35,7 +35,10 @@ class FlowInterpreter:
     ) -> dict[str, Any]:
         workflow_id = workflow.info().workflow_id
 
+        tenant_id = (meta or {}).get("tenant_id")
+
         async def run_job(request: JobRequest) -> JobResult:
+            request.tenant_id = tenant_id  # for secret:// resolution in the activity
             task_queue = None  # None => the workflow's own (server) task queue
             if request.run_on == "agent":
                 # Agent selector resolution is the agent slice; until then a job

@@ -30,6 +30,7 @@ class JobRequest:
     agent_selector: dict[str, str] | None = None
     timeout: str | None = None
     retry: dict[str, Any] | None = None
+    tenant_id: str | None = None  # set by the workflow from meta; for secret:// scoping
 
 
 @dataclass
