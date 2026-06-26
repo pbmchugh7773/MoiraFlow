@@ -36,8 +36,11 @@ class TemporalWorkflowStarter:
         definition: dict[str, Any],
         input_context: dict[str, Any],
         task_queue: str,
+        meta: dict[str, str],
     ) -> str:
-        return asyncio.run(self._start(temporal_workflow_id, definition, input_context, task_queue))
+        return asyncio.run(
+            self._start(temporal_workflow_id, definition, input_context, task_queue, meta)
+        )
 
     async def _start(
         self,
@@ -45,11 +48,12 @@ class TemporalWorkflowStarter:
         definition: dict[str, Any],
         input_context: dict[str, Any],
         task_queue: str,
+        meta: dict[str, str],
     ) -> str:
         client = await Client.connect(self._address, namespace=self._namespace)
         handle = await client.start_workflow(
             INTERPRETER_WORKFLOW,
-            args=[definition, input_context],
+            args=[definition, input_context, meta],
             id=temporal_workflow_id,
             task_queue=task_queue,
             id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
@@ -73,9 +77,10 @@ class TemporalScheduleManager:
         definition: dict[str, Any],
         input_context: dict[str, Any],
         task_queue: str,
+        meta: dict[str, str],
     ) -> None:
         asyncio.run(
-            self._upsert(schedule_id, cron, timezone, definition, input_context, task_queue)
+            self._upsert(schedule_id, cron, timezone, definition, input_context, task_queue, meta)
         )
 
     def pause(self, schedule_id: str) -> None:
@@ -92,12 +97,13 @@ class TemporalScheduleManager:
         definition: dict[str, Any],
         input_context: dict[str, Any],
         task_queue: str,
+        meta: dict[str, str],
     ) -> None:
         client = await Client.connect(self._address, namespace=self._namespace)
         schedule = Schedule(
             action=ScheduleActionStartWorkflow(
                 INTERPRETER_WORKFLOW,
-                args=[definition, input_context],
+                args=[definition, input_context, meta],
                 id=f"sched-{schedule_id}",
                 task_queue=task_queue,
             ),

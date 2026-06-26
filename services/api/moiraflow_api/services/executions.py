@@ -29,9 +29,20 @@ class WorkflowStarter(Protocol):
         definition: dict[str, Any],
         input_context: dict[str, Any],
         task_queue: str,
+        meta: dict[str, str],
     ) -> str:
         """Start the interpreter workflow and return its Temporal run id."""
         ...
+
+
+def _meta(
+    tenant_id: uuid.UUID, workflow_id: uuid.UUID, workflow_version_id: uuid.UUID
+) -> dict[str, str]:
+    return {
+        "tenant_id": str(tenant_id),
+        "workflow_id": str(workflow_id),
+        "workflow_version_id": str(workflow_version_id),
+    }
 
 
 class ExecutionServiceError(Exception):
@@ -112,6 +123,7 @@ def create_execution(
         definition=workflow_version.definition,
         input_context=input_context,
         task_queue=task_queue,
+        meta=_meta(tenant_id, workflow.id, workflow_version.id),
     )
 
     execution = models.Execution(
@@ -171,6 +183,7 @@ def replay_execution(
         definition=version.definition,
         input_context=original.input_context,
         task_queue=task_queue,
+        meta=_meta(tenant_id, original.workflow_id, original.workflow_version_id),
     )
     execution = models.Execution(
         tenant_id=tenant_id,

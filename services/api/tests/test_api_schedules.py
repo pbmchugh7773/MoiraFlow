@@ -28,8 +28,12 @@ class FakeSched:
         self.upserts = []
         self.pauses = []
 
-    def upsert(self, *, schedule_id, cron, timezone, definition, input_context, task_queue):
-        self.upserts.append({"schedule_id": schedule_id, "cron": cron, "timezone": timezone})
+    def upsert(
+        self, *, schedule_id, cron, timezone, definition, input_context, task_queue, meta=None
+    ):
+        self.upserts.append(
+            {"schedule_id": schedule_id, "cron": cron, "timezone": timezone, "meta": meta}
+        )
 
     def pause(self, schedule_id):
         self.pauses.append(schedule_id)

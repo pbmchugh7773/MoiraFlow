@@ -20,6 +20,31 @@ from ..db import models
 _TERMINAL_STATUS = {"execution_finished": "success", "execution_failed": "failed"}
 
 
+def _auto_register(
+    session: Session, temporal_workflow_id: str, event: dict[str, Any]
+) -> models.Execution | None:
+    """Create a projection row for a run that started outside POST /executions
+    (e.g. a cron schedule). The interpreter rides tenant/workflow/version ids on
+    `execution_started` so the row can be reconstructed."""
+    if event.get("type") != "execution_started":
+        return None
+    meta = (event.get("payload") or {}).get("meta") or {}
+    try:
+        execution = models.Execution(
+            tenant_id=uuid.UUID(meta["tenant_id"]),
+            workflow_id=uuid.UUID(meta["workflow_id"]),
+            workflow_version_id=uuid.UUID(meta["workflow_version_id"]),
+            temporal_workflow_id=temporal_workflow_id,
+            trigger_source="cron",
+            status="running",
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
+    session.add(execution)
+    session.flush()
+    return execution
+
+
 def handle_event(session: Session, event: dict[str, Any]) -> models.ExecutionEvent | None:
     temporal_workflow_id = event.get("temporal_workflow_id")
     if not temporal_workflow_id:
@@ -30,7 +55,9 @@ def handle_event(session: Session, event: dict[str, Any]) -> models.ExecutionEve
         )
     )
     if execution is None:
-        return None
+        execution = _auto_register(session, temporal_workflow_id, event)
+        if execution is None:
+            return None
 
     event_type = event["type"]
     payload = dict(event.get("payload") or {})

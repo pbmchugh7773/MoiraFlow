@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from moiraflow_api.db import models
@@ -77,6 +77,48 @@ def test_job_events_are_stored_in_order(session, execution):
 
 def test_unknown_execution_is_ignored(session):
     assert svc.handle_event(session, _ev("execution_started")) is None
+
+
+def test_scheduled_run_is_auto_registered_from_meta(session):
+    # a fresh tenant/workflow/version, but NO execution row (as if started by a schedule)
+    tenant = models.Tenant(name="T", slug="t")
+    session.add(tenant)
+    session.flush()
+    wf = models.Workflow(tenant_id=tenant.id, name="cronwf", trigger_type="cron")
+    session.add(wf)
+    session.flush()
+    ver = models.WorkflowVersion(
+        tenant_id=tenant.id, workflow_id=wf.id, version=1, definition={}, definition_hash="x" * 64
+    )
+    session.add(ver)
+    session.flush()
+
+    event = {
+        "temporal_workflow_id": "sched-run-1",
+        "type": "execution_started",
+        "payload": {
+            "job_count": 1,
+            "meta": {
+                "tenant_id": str(tenant.id),
+                "workflow_id": str(wf.id),
+                "workflow_version_id": str(ver.id),
+            },
+        },
+    }
+    row = svc.handle_event(session, event)
+    assert row is not None
+    created = session.scalar(
+        select(models.Execution).where(models.Execution.temporal_workflow_id == "sched-run-1")
+    )
+    assert created is not None
+    assert created.workflow_id == wf.id
+    assert created.trigger_source == "cron"
+    assert created.status == "running"
+
+
+def test_unknown_run_without_meta_still_ignored(session):
+    # job_started for an unknown run (no meta) must not create anything
+    assert svc.handle_event(session, _ev("job_started")) is None
 
 
 def test_event_without_workflow_id_is_ignored(session):

@@ -22,7 +22,7 @@ class FakeStarter:
     def __init__(self):
         self.calls = []
 
-    def start(self, *, temporal_workflow_id, definition, input_context, task_queue):
+    def start(self, *, temporal_workflow_id, definition, input_context, task_queue, meta=None):
         self.calls.append(temporal_workflow_id)
         return f"run-{len(self.calls)}"
 

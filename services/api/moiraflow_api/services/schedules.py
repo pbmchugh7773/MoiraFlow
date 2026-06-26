@@ -22,6 +22,7 @@ class ScheduleManager(Protocol):
         definition: dict[str, Any],
         input_context: dict[str, Any],
         task_queue: str,
+        meta: dict[str, str],
     ) -> None: ...
 
     def pause(self, schedule_id: str) -> None: ...

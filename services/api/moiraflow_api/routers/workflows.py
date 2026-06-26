@@ -51,6 +51,11 @@ def _sync_schedule(session: Session, sched: ScheduleManager, workflow: models.Wo
                 definition=version.definition,
                 input_context={},
                 task_queue=get_settings().server_task_queue,
+                meta={
+                    "tenant_id": str(workflow.tenant_id),
+                    "workflow_id": str(workflow.id),
+                    "workflow_version_id": str(version.id),
+                },
             )
     else:
         sched.pause(schedule_id)

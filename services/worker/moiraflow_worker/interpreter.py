@@ -57,19 +57,28 @@ async def run_dag(
     input_context: dict[str, Any],
     run_job: RunJob,
     emit: Emit | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute a validated workflow definition and return the final scope.
 
     Returns ``{"context": <initial, read-only>, "jobs": {id: {"outputs": {...}}}}``.
     The initial context is never mutated (ADR-0013); downstream jobs read upstream
-    results only through declared outputs. Lifecycle events are emitted via `emit`.
+    results only through declared outputs. Lifecycle events are emitted via `emit`;
+    `meta` (tenant/workflow/version ids) rides on `execution_started` so the API can
+    auto-register runs that started outside `POST /executions` (e.g. cron schedules).
     """
     emit = emit or _noop_emit
     jobs: list[dict[str, Any]] = definition["spec"]["jobs"]
     outputs_by_job: dict[str, dict[str, Any]] = {}
     completed: set[str] = set()
 
-    await emit({"type": "execution_started", "job_id": None, "payload": {"job_count": len(jobs)}})
+    await emit(
+        {
+            "type": "execution_started",
+            "job_id": None,
+            "payload": {"job_count": len(jobs), "meta": meta or {}},
+        }
+    )
     try:
         while len(completed) < len(jobs):
             scope = RenderScope(context=input_context, outputs=outputs_by_job)

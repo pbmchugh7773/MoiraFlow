@@ -28,7 +28,10 @@ _EVENT_TIMEOUT = timedelta(seconds=10)
 class FlowInterpreter:
     @workflow.run
     async def run(
-        self, definition: dict[str, Any], input_context: dict[str, Any]
+        self,
+        definition: dict[str, Any],
+        input_context: dict[str, Any],
+        meta: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         workflow_id = workflow.info().workflow_id
 
@@ -56,7 +59,7 @@ class FlowInterpreter:
                 start_to_close_timeout=_EVENT_TIMEOUT,
             )
 
-        return await run_dag(definition, input_context, run_job, emit=emit)
+        return await run_dag(definition, input_context, run_job, emit=emit, meta=meta)
 
 
 def _agent_task_queue(request: JobRequest) -> str:
