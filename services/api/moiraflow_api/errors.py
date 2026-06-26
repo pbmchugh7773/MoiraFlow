@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .auth.exceptions import AuthError
 from .services import executions as ex
 from .services import secrets as sec
+from .services import users as usr
 from .services import workflows as wf
 
 
@@ -55,4 +56,12 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(sec.SecretNotFoundError)
     async def _secret_missing(_: Request, exc: sec.SecretNotFoundError) -> JSONResponse:
+        return _envelope(404, "not_found", str(exc))
+
+    @app.exception_handler(usr.UserExistsError)
+    async def _user_exists(_: Request, exc: usr.UserExistsError) -> JSONResponse:
+        return _envelope(409, "user_exists", str(exc))
+
+    @app.exception_handler(usr.UserNotFoundError)
+    async def _user_missing(_: Request, exc: usr.UserNotFoundError) -> JSONResponse:
         return _envelope(404, "not_found", str(exc))

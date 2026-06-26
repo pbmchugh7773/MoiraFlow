@@ -6,9 +6,12 @@ and edit workflows.
 
 from __future__ import annotations
 
+import json
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends
+import yaml
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -126,6 +129,41 @@ def get_workflow(
     _: models.User = Depends(get_current_user),
 ) -> WorkflowOut:
     return WorkflowOut.model_validate(svc.get_workflow(session, workflow_id))
+
+
+@router.delete("/{workflow_id}", status_code=204)
+def delete_workflow(
+    workflow_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    tenant: models.Tenant = Depends(get_current_tenant),
+    sched: ScheduleManager = Depends(get_schedule_manager),
+    actor: models.User = Depends(require_roles("developer")),
+) -> Response:
+    svc.delete_workflow(session, workflow_id)
+    sched.pause(schedule_id_for(workflow_id))  # stop any cron schedule
+    audit_svc.record(
+        session,
+        tenant_id=tenant.id,
+        action="workflow.delete",
+        actor_user_id=actor.id,
+        target_type="workflow",
+        target_id=str(workflow_id),
+    )
+    return Response(status_code=204)
+
+
+@router.get("/{workflow_id}/export")
+def export_workflow(
+    workflow_id: uuid.UUID,
+    format: Literal["yaml", "json"] = Query("yaml"),
+    session: Session = Depends(get_session),
+    _: models.User = Depends(get_current_user),
+) -> Response:
+    """Export the active version's definition (Workflow as Code, round-trippable)."""
+    definition = svc.active_definition(session, workflow_id)
+    if format == "json":
+        return Response(json.dumps(definition, indent=2), media_type="application/json")
+    return Response(yaml.safe_dump(definition, sort_keys=False), media_type="application/x-yaml")
 
 
 @router.get("/{workflow_id}/versions", response_model=list[WorkflowVersionOut])

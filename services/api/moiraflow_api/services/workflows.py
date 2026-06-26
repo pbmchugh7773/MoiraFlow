@@ -8,6 +8,7 @@ saved definition becomes an immutable, content-hashed `workflow_versions` row
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -179,6 +180,23 @@ def get_version(
     if version is None:
         raise VersionNotFoundError(f"workflow has no version {version_number}")
     return version
+
+
+def delete_workflow(session: Session, workflow_id: uuid.UUID) -> models.Workflow:
+    workflow = get_workflow(session, workflow_id)
+    workflow.deleted_at = datetime.now(timezone.utc)
+    session.flush()
+    return workflow
+
+
+def active_definition(session: Session, workflow_id: uuid.UUID) -> dict[str, object]:
+    workflow = get_workflow(session, workflow_id)
+    if workflow.active_version_id is None:
+        raise VersionNotFoundError("workflow has no active version")
+    version = session.get(models.WorkflowVersion, workflow.active_version_id)
+    if version is None:  # pragma: no cover
+        raise VersionNotFoundError("active version missing")
+    return dict(version.definition)
 
 
 def set_enabled(session: Session, workflow_id: uuid.UUID, enabled: bool) -> models.Workflow:

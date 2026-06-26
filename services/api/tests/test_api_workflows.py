@@ -71,6 +71,23 @@ def test_list_and_get_workflow(client):
     assert detail.json()["id"] == created["id"]
 
 
+def test_delete_workflow_soft_deletes(client):
+    wf = client.post("/api/v1/workflows", json={"content": WF}).json()
+    assert client.delete(f"/api/v1/workflows/{wf['id']}").status_code == 204
+    # gone from list and detail 404
+    assert client.get("/api/v1/workflows").json() == []
+    assert client.get(f"/api/v1/workflows/{wf['id']}").status_code == 404
+
+
+def test_export_workflow_yaml_and_json(client):
+    wf = client.post("/api/v1/workflows", json={"content": WF}).json()
+    y = client.get(f"/api/v1/workflows/{wf['id']}/export?format=yaml")
+    assert y.status_code == 200
+    assert "daily_import" in y.text
+    j = client.get(f"/api/v1/workflows/{wf['id']}/export?format=json")
+    assert j.json()["metadata"]["name"] == "daily_import"
+
+
 def test_get_unknown_workflow_returns_404(client):
     resp = client.get("/api/v1/workflows/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404

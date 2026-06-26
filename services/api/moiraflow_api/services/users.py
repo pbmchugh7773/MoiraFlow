@@ -65,3 +65,20 @@ def get_user(session: Session, user_id: uuid.UUID) -> models.User:
     if user is None:
         raise UserNotFoundError(f"user {user_id} not found")
     return user
+
+
+def list_users(session: Session, tenant_id: uuid.UUID) -> list[models.User]:
+    return list(
+        session.scalars(
+            select(models.User)
+            .where(models.User.tenant_id == tenant_id)
+            .order_by(models.User.created_at)
+        )
+    )
+
+
+def set_active(session: Session, user_id: uuid.UUID, active: bool) -> models.User:
+    user = get_user(session, user_id)
+    user.is_active = active
+    session.flush()
+    return user
