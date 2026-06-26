@@ -18,6 +18,8 @@ from .config import get_settings
 from .deps import session_factory
 from .errors import register_error_handlers
 from .live import run_event_subscriber
+from .observability import add_metrics_middleware
+from .observability import router as system_router
 from .routers import auth, catalog, executions, secrets, workflows
 
 API_PREFIX = "/api/v1"
@@ -57,6 +59,8 @@ def create_app() -> FastAPI:
     app.include_router(executions.router, prefix=API_PREFIX)
     app.include_router(secrets.router, prefix=API_PREFIX)
     app.include_router(catalog.router, prefix=API_PREFIX)
+    app.include_router(system_router)  # /healthz, /readyz, /metrics (root, no auth)
+    add_metrics_middleware(app)
     register_error_handlers(app)
     return app
 
