@@ -78,6 +78,16 @@ def get_execution_events(
     return [ExecutionEventOut.model_validate(e) for e in rows]
 
 
+@router.get("/{execution_id}/definition")
+def get_execution_definition(
+    execution_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    _: models.User = Depends(get_current_user),
+) -> dict[str, object]:
+    """The workflow definition this execution runs — used to draw the live DAG."""
+    return svc.get_definition(session, execution_id)
+
+
 @router.websocket("/{execution_id}/stream")
 async def stream_execution(
     websocket: WebSocket, execution_id: uuid.UUID, token: str = Query(...)

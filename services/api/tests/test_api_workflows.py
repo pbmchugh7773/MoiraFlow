@@ -86,6 +86,21 @@ def test_add_version_and_activate(client):
     assert activated.json()["active_version_id"] == v2.json()["id"]
 
 
+def test_get_version_detail_returns_definition(client):
+    wf = client.post("/api/v1/workflows", json={"content": WF}).json()
+    resp = client.get(f"/api/v1/workflows/{wf['id']}/versions/1")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["version"] == 1
+    assert body["definition"]["metadata"]["name"] == "daily_import"
+    assert body["definition"]["spec"]["jobs"][0]["id"] == "fetch"
+
+
+def test_get_unknown_version_returns_404(client):
+    wf = client.post("/api/v1/workflows", json={"content": WF}).json()
+    assert client.get(f"/api/v1/workflows/{wf['id']}/versions/99").status_code == 404
+
+
 def test_add_version_name_mismatch_returns_409(client):
     wf = client.post("/api/v1/workflows", json={"content": WF}).json()
     resp = client.post(

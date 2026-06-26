@@ -24,6 +24,12 @@ export interface ExecutionEvent {
 export interface ValidationError { code: string; message: string; loc: string }
 export interface ValidationResult { valid: boolean; errors: ValidationError[] }
 
+export interface JobDef { id: string; type?: string; needs?: string[]; with?: Record<string, unknown>; outputs?: Record<string, string> }
+export interface WorkflowDefinition {
+  apiVersion: string; kind: string; metadata: { name: string };
+  spec: { jobs: JobDef[] } & Record<string, unknown>;
+}
+
 const TOKEN_KEY = "moiraflow.token";
 export const token = {
   get: () => localStorage.getItem(TOKEN_KEY),
@@ -63,6 +69,8 @@ export const api = {
   createWorkflow: (content: string, format: "yaml" | "json") =>
     request<Workflow>("/workflows", { method: "POST", body: JSON.stringify({ content, format }) }),
   listVersions: (id: string) => request<WorkflowVersion[]>(`/workflows/${id}/versions`),
+  getVersion: (id: string, version: number) =>
+    request<WorkflowVersion & { definition: WorkflowDefinition }>(`/workflows/${id}/versions/${version}`),
   activate: (id: string, version: number) =>
     request<Workflow>(`/workflows/${id}/activate/${version}`, { method: "POST" }),
   validate: (content: string, format: "yaml" | "json") =>
@@ -76,6 +84,8 @@ export const api = {
   launch: (workflow_id: string) =>
     request<Execution>("/executions", { method: "POST", body: JSON.stringify({ workflow_id }) }),
   getEvents: (id: string) => request<ExecutionEvent[]>(`/executions/${id}/events`),
+  getExecutionDefinition: (id: string) =>
+    request<WorkflowDefinition>(`/executions/${id}/definition`),
 };
 
 export function streamUrl(executionId: string): string {

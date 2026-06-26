@@ -77,6 +77,14 @@ def test_get_and_list_executions(client):
     assert len(listing) == 1
 
 
+def test_execution_definition_returns_jobs(client):
+    wid = _make_workflow(client)
+    ex = client.post("/api/v1/executions", json={"workflow_id": wid}).json()
+    resp = client.get(f"/api/v1/executions/{ex['id']}/definition")
+    assert resp.status_code == 200
+    assert resp.json()["spec"]["jobs"][0]["id"] == "fetch"
+
+
 def test_launch_unknown_workflow_404(client):
     resp = client.post(
         "/api/v1/executions",

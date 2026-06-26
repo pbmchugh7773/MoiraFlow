@@ -15,7 +15,12 @@ from sqlalchemy.orm import Session
 from ..db import models
 from ..deps import get_current_tenant, get_current_user, get_session, require_roles
 from ..schemas.validation import ValidateRequest, ValidateResponse
-from ..schemas.workflows import CreateWorkflowRequest, WorkflowOut, WorkflowVersionOut
+from ..schemas.workflows import (
+    CreateWorkflowRequest,
+    WorkflowOut,
+    WorkflowVersionDetailOut,
+    WorkflowVersionOut,
+)
 from ..services import workflows as svc
 from ..workflow import validate_workflow
 
@@ -77,6 +82,16 @@ def list_versions(
         .order_by(models.WorkflowVersion.version)
     )
     return [WorkflowVersionOut.model_validate(v) for v in versions]
+
+
+@router.get("/{workflow_id}/versions/{version}", response_model=WorkflowVersionDetailOut)
+def get_version(
+    workflow_id: uuid.UUID,
+    version: int,
+    session: Session = Depends(get_session),
+    _: models.User = Depends(get_current_user),
+) -> WorkflowVersionDetailOut:
+    return WorkflowVersionDetailOut.model_validate(svc.get_version(session, workflow_id, version))
 
 
 @router.post("/{workflow_id}/versions", status_code=201, response_model=WorkflowVersionOut)

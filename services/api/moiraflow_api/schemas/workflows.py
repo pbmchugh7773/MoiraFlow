@@ -23,6 +23,10 @@ class WorkflowVersionOut(BaseModel):
     created_at: datetime
 
 
+class WorkflowVersionDetailOut(WorkflowVersionOut):
+    definition: dict[str, Any]
+
+
 class WorkflowOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

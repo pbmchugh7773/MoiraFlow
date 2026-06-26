@@ -137,6 +137,15 @@ def get_execution(session: Session, execution_id: uuid.UUID) -> models.Execution
     return execution
 
 
+def get_definition(session: Session, execution_id: uuid.UUID) -> dict[str, Any]:
+    """The workflow definition this execution is running (for the live DAG view)."""
+    execution = get_execution(session, execution_id)
+    version = session.get(models.WorkflowVersion, execution.workflow_version_id)
+    if version is None:  # pragma: no cover - FK guards this
+        raise ExecutionNotFoundError("execution version missing")
+    return dict(version.definition)
+
+
 def list_executions(
     session: Session, tenant_id: uuid.UUID, workflow_id: uuid.UUID | None = None
 ) -> list[models.Execution]:

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, ApiError, type Execution, type Workflow, type WorkflowVersion } from "../api";
+import { api, ApiError, type Execution, type JobDef, type Workflow, type WorkflowVersion } from "../api";
 import { canLaunch, useAuth } from "../auth";
-import { StatusBadge } from "../components";
+import { DagView, StatusBadge } from "../components";
 
 export function WorkflowDetail() {
   const { id = "" } = useParams();
@@ -11,11 +11,20 @@ export function WorkflowDetail() {
   const [wf, setWf] = useState<Workflow | null>(null);
   const [versions, setVersions] = useState<WorkflowVersion[]>([]);
   const [runs, setRuns] = useState<Execution[]>([]);
+  const [jobs, setJobs] = useState<JobDef[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
   const reload = () => {
-    api.getWorkflow(id).then(setWf).catch(() => setErr("Workflow not found"));
-    api.listVersions(id).then(setVersions).catch(() => {});
+    api.getWorkflow(id).then((w) => {
+      setWf(w);
+      api.listVersions(id).then((vs) => {
+        setVersions(vs);
+        const active = vs.find((v) => v.id === w.active_version_id) ?? vs[vs.length - 1];
+        if (active) {
+          api.getVersion(id, active.version).then((d) => setJobs(d.definition.spec.jobs ?? [])).catch(() => {});
+        }
+      }).catch(() => {});
+    }).catch(() => setErr("Workflow not found"));
     api.listExecutions(id).then(setRuns).catch(() => {});
   };
   useEffect(reload, [id]);
@@ -52,6 +61,13 @@ export function WorkflowDetail() {
         <span className="pill">{wf.is_enabled ? "enabled" : "disabled"}</span>
         <span className="pill mono">{id.slice(0, 8)}</span>
       </div>
+
+      {jobs.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <h3 className="display" style={{ fontSize: 18, marginBottom: 12 }}>Shape</h3>
+          <DagView jobs={jobs} />
+        </div>
+      )}
 
       <Section title="Versions">
         <table className="table">

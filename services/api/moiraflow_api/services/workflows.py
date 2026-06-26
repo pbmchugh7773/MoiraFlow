@@ -166,6 +166,21 @@ def get_workflow(session: Session, workflow_id: uuid.UUID) -> models.Workflow:
     return workflow
 
 
+def get_version(
+    session: Session, workflow_id: uuid.UUID, version_number: int
+) -> models.WorkflowVersion:
+    get_workflow(session, workflow_id)  # 404 if the workflow is missing
+    version = session.scalar(
+        select(models.WorkflowVersion).where(
+            models.WorkflowVersion.workflow_id == workflow_id,
+            models.WorkflowVersion.version == version_number,
+        )
+    )
+    if version is None:
+        raise VersionNotFoundError(f"workflow has no version {version_number}")
+    return version
+
+
 def list_workflows(session: Session, tenant_id: uuid.UUID) -> list[models.Workflow]:
     return list(
         session.scalars(

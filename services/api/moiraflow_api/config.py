@@ -17,9 +17,7 @@ class Settings:
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     # Off by default (tests/local); the docker-compose api sets this to "1".
     event_subscriber_enabled: bool = os.getenv("MOIRAFLOW_EVENT_SUBSCRIBER", "0") == "1"
-    cors_origins: str = os.getenv(
-        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
-    )
+    cors_origins: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
 
 
 def get_settings() -> Settings:
