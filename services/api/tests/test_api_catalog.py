@@ -17,3 +17,12 @@ def test_openapi_is_served():
     resp = client.get("/api/v1/openapi.json")
     assert resp.status_code == 200
     assert resp.json()["info"]["title"] == "MoiraFlow API"
+
+
+def test_job_types_catalog():
+    resp = client.get("/api/v1/catalog/job-types")
+    assert resp.status_code == 200
+    types = {t["type"] for t in resp.json()}
+    assert types == {"command", "rest", "sql"}
+    command = next(t for t in resp.json() if t["type"] == "command")
+    assert "command" in command["input_schema"]["properties"]

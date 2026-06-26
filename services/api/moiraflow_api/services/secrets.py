@@ -63,6 +63,10 @@ def put_secret(
     return secret
 
 
+def secret_exists(session: Session, tenant_id: uuid.UUID, key: str) -> bool:
+    return _get(session, tenant_id, key) is not None
+
+
 def list_keys(session: Session, tenant_id: uuid.UUID) -> list[str]:
     return list(
         session.scalars(

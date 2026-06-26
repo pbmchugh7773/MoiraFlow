@@ -37,6 +37,15 @@ def test_create_workflow_returns_201_and_active_version(client):
     assert body["active_version_id"] is not None
 
 
+def test_simulate_returns_plan_and_warnings(client):
+    resp = client.post("/api/v1/workflows/simulate", json={"content": WF, "format": "yaml"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["valid"] is True
+    assert [s["job_id"] for s in body["plan"]] == ["fetch"]
+    assert body["plan"][0]["task_queue"] == "server"
+
+
 def test_create_invalid_returns_422_with_errors(client):
     bad = WF.replace("echo hi", "{{ context.missing }}")
     resp = client.post("/api/v1/workflows", json={"content": bad, "format": "yaml"})

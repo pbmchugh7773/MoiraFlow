@@ -21,6 +21,7 @@ from ..deps import (
     get_session,
     require_roles,
 )
+from ..schemas.simulation import SimulateResponse
 from ..schemas.validation import ValidateRequest, ValidateResponse
 from ..schemas.workflows import (
     CreateWorkflowRequest,
@@ -28,6 +29,7 @@ from ..schemas.workflows import (
     WorkflowVersionDetailOut,
     WorkflowVersionOut,
 )
+from ..services import simulation as sim_svc
 from ..services import workflows as svc
 from ..services.schedules import ScheduleManager, schedule_id_for
 from ..workflow import validate_workflow
@@ -73,6 +75,17 @@ def validate(
     """
     result = validate_workflow(request.content, request.format)
     return ValidateResponse.from_result(result)
+
+
+@router.post("/simulate", response_model=SimulateResponse)
+def simulate(
+    request: ValidateRequest,
+    session: Session = Depends(get_session),
+    tenant: models.Tenant = Depends(get_current_tenant),
+) -> SimulateResponse:
+    """Dry-run: resolve the DAG + check secret:// refs and routing without executing."""
+    result = sim_svc.simulate(session, tenant.id, request.content, request.format)
+    return SimulateResponse.from_result(result)
 
 
 @router.post("", status_code=201, response_model=WorkflowOut)
