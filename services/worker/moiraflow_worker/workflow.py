@@ -66,8 +66,7 @@ class FlowInterpreter:
 
 
 def _agent_task_queue(request: JobRequest) -> str:
+    # MVP: a single local agent ("local"); a selector.agent_id overrides it.
     selector = request.agent_selector or {}
-    agent_id = selector.get("agent_id")
-    if not agent_id:
-        raise ValueError(f"job '{request.job_id}' is run_on=agent but no agent could be resolved")
+    agent_id = selector.get("agent_id") or "local"
     return f"agent-{agent_id}"

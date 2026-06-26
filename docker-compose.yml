@@ -72,6 +72,20 @@ services:
       temporal:
         condition: service_started
 
+  # Local "thin agent": activities-only worker on agent-local; runs only `command`.
+  # Intentionally has NO DB / secret access (ADR-0013) — it never resolves secrets.
+  agent:
+    build:
+      context: .
+      dockerfile: deploy/docker/worker.Dockerfile
+    command: ["python", "-m", "moiraflow_worker.agent"]
+    environment:
+      TEMPORAL_HOST: ${TEMPORAL_HOST}
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE}
+    depends_on:
+      temporal:
+        condition: service_started
+
 volumes:
   postgres-data:
   minio-data:
