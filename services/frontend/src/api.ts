@@ -25,6 +25,12 @@ export interface Artifact {
   id: string; name: string; size_bytes: number; content_type: string | null;
   download_url: string; created_at: string;
 }
+export interface Agent {
+  id: string; name: string; status: string; os: string; task_queue: string;
+  fingerprint: string | null; labels: Record<string, unknown>;
+  last_heartbeat_at: string | null; created_at: string;
+}
+export interface EnrollToken { enrollment_token: string; temporal_host: string; expires_in: number }
 export interface ValidationError { code: string; message: string; loc: string }
 export interface ValidationResult { valid: boolean; errors: ValidationError[] }
 
@@ -80,6 +86,11 @@ export const api = {
     request<User>("/users", { method: "POST", body: JSON.stringify({ email, password, role }) }),
   setUserActive: (id: string, active: boolean) =>
     request<User>(`/users/${id}/${active ? "activate" : "deactivate"}`, { method: "POST" }),
+
+  listAgents: () => request<Agent[]>("/agents"),
+  enrollAgent: () => request<EnrollToken>("/agents/enroll", { method: "POST" }),
+  approveAgent: (id: string) => request<Agent>(`/agents/${id}/approve`, { method: "POST" }),
+  revokeAgent: (id: string) => request<Agent>(`/agents/${id}/revoke`, { method: "POST" }),
 
   listSecretKeys: () => request<{ keys: string[] }>("/secrets"),
   putSecret: (key: string, value: string) =>
