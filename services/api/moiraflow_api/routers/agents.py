@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from ..ca import fingerprint, get_certificate_authority
 from ..config import get_settings
 from ..db import models
 from ..deps import (
@@ -59,15 +60,30 @@ def register_agent(
     if tenant_id is None:
         raise InvalidEnrollmentTokenError("invalid or expired enrollment token")
     agent = svc.register_agent(session, tenant_id, request.name, request.public_key)
+    certificate: str | None = None
+    ca_certificate: str | None = None
+    if request.csr:
+        ca = get_certificate_authority()
+        certificate = ca.sign_csr(request.csr)
+        ca_certificate = ca.cert_pem
+        agent.fingerprint = fingerprint(certificate)
+        session.flush()
     audit_svc.record(
         session,
         tenant_id=tenant_id,
         action="agent.register",
         target_type="agent",
         target_id=str(agent.id),
-        metadata={"name": agent.name},
+        metadata={"name": agent.name, "fingerprint": agent.fingerprint},
     )
-    return RegisterResponse(agent_id=agent.id, task_queue=agent.task_queue, status=agent.status)
+    return RegisterResponse(
+        agent_id=agent.id,
+        task_queue=agent.task_queue,
+        status=agent.status,
+        certificate=certificate,
+        ca_certificate=ca_certificate,
+        fingerprint=agent.fingerprint,
+    )
 
 
 @router.get("", response_model=list[AgentOut])

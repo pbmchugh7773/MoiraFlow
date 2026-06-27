@@ -7,6 +7,7 @@ from dataclasses import asdict
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from . import ca
 from .auth.exceptions import AuthError
 from .services import agents as ag
 from .services import executions as ex
@@ -74,3 +75,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ag.InvalidEnrollmentTokenError)
     async def _bad_token(_: Request, exc: ag.InvalidEnrollmentTokenError) -> JSONResponse:
         return _envelope(401, "invalid_enrollment_token", str(exc))
+
+    @app.exception_handler(ca.InvalidCsrError)
+    async def _bad_csr(_: Request, exc: ca.InvalidCsrError) -> JSONResponse:
+        return _envelope(400, "invalid_csr", str(exc))

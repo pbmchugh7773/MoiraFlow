@@ -92,3 +92,28 @@ def test_enroll_requires_admin(store):
         assert client.post("/api/v1/agents/enroll").status_code == 403
     finally:
         app.dependency_overrides.clear()
+
+
+def test_register_with_csr_issues_certificate(store):
+    from tests.test_ca import make_csr
+
+    client = _client(store)
+    try:
+        token = client.post("/api/v1/agents/enroll").json()["enrollment_token"]
+        reg = client.post(
+            "/api/v1/agents/register",
+            json={
+                "token": token,
+                "name": "edge-tls",
+                "public_key": "PK",
+                "csr": make_csr("edge-tls"),
+            },
+        ).json()
+        assert reg["certificate"].startswith("-----BEGIN CERTIFICATE-----")
+        assert reg["ca_certificate"].startswith("-----BEGIN CERTIFICATE-----")
+        assert len(reg["fingerprint"]) == 64
+        # the fingerprint is persisted on the agent row
+        agent = client.get("/api/v1/agents").json()[0]
+        assert agent["fingerprint"] == reg["fingerprint"]
+    finally:
+        app.dependency_overrides.clear()

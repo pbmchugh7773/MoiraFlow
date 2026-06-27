@@ -19,12 +19,16 @@ class RegisterAgentRequest(BaseModel):
     token: str
     name: str
     public_key: str
+    csr: str | None = None  # PEM CSR; when present the CA issues a signed cert
 
 
 class RegisterResponse(BaseModel):
     agent_id: uuid.UUID
     task_queue: str
     status: str
+    certificate: str | None = None  # signed agent cert (PEM)
+    ca_certificate: str | None = None  # CA cert to trust (PEM)
+    fingerprint: str | None = None
 
 
 class AgentOut(BaseModel):
