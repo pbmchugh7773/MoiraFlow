@@ -2,7 +2,16 @@
 
 An **Automation Operating System** for SMBs: workflows are defined **as code** (YAML/JSON),
 executed as **durable DAGs** on [Temporal](https://temporal.io), with jobs running
-server-side or (later) on remote "thin agents".
+server-side or on remote "thin agents".
+
+**Built:** workflow validation + immutable content-hashed versioning · Temporal interpreter
+(`command` / `rest` / `sql`) · idempotent executions with live event feed
+(worker→Redis→WebSocket) · JWT auth + RBAC · cron triggers (Temporal Schedules) ·
+`simulate` (dry-run) + machine-readable catalogs · users / secrets / workflow management ·
+`job_executions`, `cancel`, append-only `audit_log` · **artifacts in MinIO** (declare files →
+upload → presigned download) · **command isolation** (non-root, rlimits, ephemeral workdir) ·
+the **secure remote agent** (enroll→approve→revoke lifecycle, internal CA, per-agent envelope
+encryption, revocation gate) · and a React UI for all of it.
 
 > The Moirai wove the thread of destiny — MoiraFlow weaves the threads of your workflows'
 > durable execution. Design docs live in [`docs/`](docs/) (Spanish; product/code in English).
@@ -11,11 +20,9 @@ server-side or (later) on remote "thin agents".
 
 ```bash
 cp .env.example .env                 # adjust secrets for anything beyond local dev
-docker compose up -d                 # postgres · temporal · redis · minio · api · worker
+docker compose up -d                 # postgres · temporal · redis · minio · api · worker · agent
 docker compose exec api python -m moiraflow_api.scripts.create_admin   # first admin
 ```
-
-Then open:
 
 Then start the web UI (Vite dev server):
 
@@ -56,6 +63,18 @@ curl -s localhost:8001/api/v1/executions -H "authorization: Bearer $TOKEN" \
 ```
 
 Ports are configurable in `.env` (defaults avoid clashing with common 5432/8000).
+
+### End-to-end smoke
+
+With the stack up + the admin seeded, `scripts/e2e_smoke.sh` exercises the whole
+platform against the running API — health, auth, catalog/simulate, secrets, workflow
+create/export, launch + live projection (`job_executions`, events), artifacts in MinIO
+(upload → presigned download), cancel, user management, the full remote-agent lifecycle
+(enroll → register → CA-signed cert → revocation gate), and the audit log:
+
+```bash
+bash scripts/e2e_smoke.sh        # 30 checks; exits non-zero on any failure
+```
 
 ## Architecture
 
