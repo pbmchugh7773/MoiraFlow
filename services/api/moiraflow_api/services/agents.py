@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import secrets as pysecrets
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..agent_crypto import encrypt_for_agent
 from ..db import models
+from . import secrets as secrets_svc
 
 _PENDING = "pending_approval"
+_ACTIVE = {"approved", "online"}
 
 
 class AgentServiceError(Exception):
@@ -28,6 +32,10 @@ class AgentNotFoundError(AgentServiceError):
 
 
 class InvalidEnrollmentTokenError(AgentServiceError):
+    pass
+
+
+class AgentNotAuthorizedError(AgentServiceError):
     pass
 
 
@@ -97,6 +105,41 @@ def revoke_agent(session: Session, agent_id: uuid.UUID) -> models.Agent:
     agent.status = "revoked"
     session.flush()
     return agent
+
+
+def verify_agent(session: Session, fingerprint: str) -> models.Agent:
+    """Authorize an agent by its certificate fingerprint (the revocation gate). The
+    control plane denies revoked/unapproved agents even though a task-queue name is
+    not itself a security boundary (ADR-0012)."""
+    agent = session.scalar(select(models.Agent).where(models.Agent.fingerprint == fingerprint))
+    if agent is None:
+        raise AgentNotAuthorizedError("unknown agent fingerprint")
+    if agent.status == "revoked":
+        raise AgentNotAuthorizedError("agent is revoked")
+    if agent.status not in _ACTIVE:
+        raise AgentNotAuthorizedError(f"agent not approved (status={agent.status})")
+    return agent
+
+
+def heartbeat(session: Session, agent: models.Agent) -> models.Agent:
+    agent.status = "online"
+    agent.last_heartbeat_at = datetime.now(timezone.utc)
+    session.flush()
+    return agent
+
+
+def seal_secrets_for_agent(
+    session: Session, agent: models.Agent, keys: list[str], master_key: str
+) -> dict[str, str]:
+    """Resolve each secret server-side and seal it to the agent's public key, so the
+    plaintext never travels and the agent decrypts in memory (ADR-0013, slice 3)."""
+    if not agent.public_key:
+        raise AgentNotAuthorizedError("agent has no public key to seal secrets to")
+    sealed: dict[str, str] = {}
+    for key in keys:
+        value = secrets_svc.get_value(session, master_key, agent.tenant_id, key)
+        sealed[key] = encrypt_for_agent(agent.public_key, value)
+    return sealed
 
 
 def list_agents(session: Session, tenant_id: uuid.UUID) -> list[models.Agent]:

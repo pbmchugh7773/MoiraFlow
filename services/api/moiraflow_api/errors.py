@@ -79,3 +79,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ca.InvalidCsrError)
     async def _bad_csr(_: Request, exc: ca.InvalidCsrError) -> JSONResponse:
         return _envelope(400, "invalid_csr", str(exc))
+
+    @app.exception_handler(ag.AgentNotAuthorizedError)
+    async def _agent_denied(_: Request, exc: ag.AgentNotAuthorizedError) -> JSONResponse:
+        return _envelope(403, "agent_not_authorized", str(exc))

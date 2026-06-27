@@ -21,7 +21,14 @@ from ..deps import (
     get_session,
     require_roles,
 )
-from ..schemas.agents import AgentOut, EnrollResponse, RegisterAgentRequest, RegisterResponse
+from ..schemas.agents import (
+    AgentOut,
+    EnrollResponse,
+    RegisterAgentRequest,
+    RegisterResponse,
+    VerifyAgentRequest,
+    VerifyAgentResponse,
+)
 from ..services import agents as svc
 from ..services import audit as audit_svc
 from ..services.agents import AgentTokenStore, InvalidEnrollmentTokenError
@@ -84,6 +91,21 @@ def register_agent(
         ca_certificate=ca_certificate,
         fingerprint=agent.fingerprint,
     )
+
+
+@router.post("/verify", response_model=VerifyAgentResponse)
+def verify_agent(
+    request: VerifyAgentRequest,
+    session: Session = Depends(get_session),
+) -> VerifyAgentResponse:
+    """Authorize an agent by its cert fingerprint + record a heartbeat. Revoked or
+    unapproved agents are denied (403) — this is how revocation actually blocks an
+    agent, since a Temporal queue name is not a security boundary. Unauthenticated:
+    in production the agent reaches this over mTLS and the fingerprint is bound to
+    the validated client cert."""
+    agent = svc.verify_agent(session, request.fingerprint)  # 403 if not authorized
+    svc.heartbeat(session, agent)
+    return VerifyAgentResponse(authorized=True, status=agent.status, task_queue=agent.task_queue)
 
 
 @router.get("", response_model=list[AgentOut])

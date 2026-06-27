@@ -31,6 +31,16 @@ class RegisterResponse(BaseModel):
     fingerprint: str | None = None
 
 
+class VerifyAgentRequest(BaseModel):
+    fingerprint: str
+
+
+class VerifyAgentResponse(BaseModel):
+    authorized: bool
+    status: str
+    task_queue: str
+
+
 class AgentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

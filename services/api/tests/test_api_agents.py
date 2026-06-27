@@ -94,6 +94,35 @@ def test_enroll_requires_admin(store):
         app.dependency_overrides.clear()
 
 
+def test_verify_gate_follows_lifecycle(store):
+    from tests.test_ca import make_csr
+
+    client = _client(store)
+    try:
+        token = client.post("/api/v1/agents/enroll").json()["enrollment_token"]
+        reg = client.post(
+            "/api/v1/agents/register",
+            json={"token": token, "name": "edge", "public_key": "PK", "csr": make_csr("edge")},
+        ).json()
+        fp, aid = reg["fingerprint"], reg["agent_id"]
+
+        # pending_approval -> denied
+        assert client.post("/api/v1/agents/verify", json={"fingerprint": fp}).status_code == 403
+        # approve -> authorized + heartbeat flips to online
+        client.post(f"/api/v1/agents/{aid}/approve")
+        ok = client.post("/api/v1/agents/verify", json={"fingerprint": fp})
+        assert ok.status_code == 200
+        assert ok.json()["authorized"] is True
+        assert ok.json()["status"] == "online"
+        # revoke -> denied again
+        client.post(f"/api/v1/agents/{aid}/revoke")
+        denied = client.post("/api/v1/agents/verify", json={"fingerprint": fp})
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "agent_not_authorized"
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_register_with_csr_issues_certificate(store):
     from tests.test_ca import make_csr
 
