@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .auth.exceptions import AuthError
+from .services import agents as ag
 from .services import executions as ex
 from .services import secrets as sec
 from .services import users as usr
@@ -65,3 +66,11 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(usr.UserNotFoundError)
     async def _user_missing(_: Request, exc: usr.UserNotFoundError) -> JSONResponse:
         return _envelope(404, "not_found", str(exc))
+
+    @app.exception_handler(ag.AgentNotFoundError)
+    async def _agent_missing(_: Request, exc: ag.AgentNotFoundError) -> JSONResponse:
+        return _envelope(404, "not_found", str(exc))
+
+    @app.exception_handler(ag.InvalidEnrollmentTokenError)
+    async def _bad_token(_: Request, exc: ag.InvalidEnrollmentTokenError) -> JSONResponse:
+        return _envelope(401, "invalid_enrollment_token", str(exc))

@@ -22,6 +22,7 @@ from .config import get_settings
 from .db import models
 from .db.session import make_engine, make_session_factory
 from .services import users as user_svc
+from .services.agents import AgentTokenStore
 from .services.executions import WorkflowStarter
 from .services.schedules import ScheduleManager
 
@@ -73,6 +74,13 @@ def get_schedule_manager() -> ScheduleManager:
     return TemporalScheduleManager(
         settings.temporal_host, settings.temporal_namespace, settings.secrets_master_key
     )
+
+
+def get_agent_token_store() -> AgentTokenStore:
+    """The production (Redis-backed) enrollment token store. Tests override this."""
+    from .services.agents import RedisAgentTokenStore
+
+    return RedisAgentTokenStore(get_settings().redis_url)
 
 
 def get_current_user(
