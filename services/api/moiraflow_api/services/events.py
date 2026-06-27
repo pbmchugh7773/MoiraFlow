@@ -119,10 +119,33 @@ def _project_job(
     if event["type"] == "job_succeeded":
         job.status = "success"
         job.output = payload.get("outputs", {})
+        for ref in payload.get("artifacts") or []:
+            session.add(
+                models.Artifact(
+                    tenant_id=execution.tenant_id,
+                    execution_id=execution.id,
+                    job_execution_id=job.id,
+                    name=ref["name"],
+                    bucket=ref["bucket"],
+                    object_key=ref["object_key"],
+                    size_bytes=ref.get("size_bytes", 0),
+                    content_type=ref.get("content_type"),
+                )
+            )
     elif event["type"] == "job_failed":
         job.status = "failed"
         job.error = payload
     job.finished_at = now
+
+
+def list_artifacts(session: Session, execution_id: uuid.UUID) -> list[models.Artifact]:
+    return list(
+        session.scalars(
+            select(models.Artifact)
+            .where(models.Artifact.execution_id == execution_id)
+            .order_by(models.Artifact.created_at)
+        )
+    )
 
 
 def list_job_executions(session: Session, execution_id: uuid.UUID) -> list[models.JobExecution]:

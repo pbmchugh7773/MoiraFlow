@@ -19,6 +19,12 @@ class Settings:
     # Off by default (tests/local); the docker-compose api sets this to "1".
     event_subscriber_enabled: bool = os.getenv("MOIRAFLOW_EVENT_SUBSCRIBER", "0") == "1"
     cors_origins: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    # Browser-reachable MinIO endpoint for presigned download URLs (uploads use the
+    # internal S3_ENDPOINT from the worker side).
+    s3_public_endpoint: str = os.getenv("S3_PUBLIC_ENDPOINT", "http://localhost:9000")
+    s3_access_key: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
+    s3_secret_key: str = os.getenv("S3_SECRET_KEY", "minioadmin")
+    s3_bucket: str = os.getenv("S3_BUCKET", "moiraflow-artifacts")
 
 
 def get_settings() -> Settings:

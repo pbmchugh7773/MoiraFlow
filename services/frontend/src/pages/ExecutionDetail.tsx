@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, streamUrl, type Execution, type ExecutionEvent, type JobDef } from "../api";
+import { api, streamUrl, type Artifact, type Execution, type ExecutionEvent, type JobDef } from "../api";
 import { canLaunch, useAuth } from "../auth";
 import { DagView, StatusBadge } from "../components";
 
@@ -20,6 +20,7 @@ export function ExecutionDetail() {
   const [exec, setExec] = useState<Execution | null>(null);
   const [events, setEvents] = useState<Item[]>([]);
   const [jobs, setJobs] = useState<JobDef[]>([]);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [status, setStatus] = useState<string>("pending");
   const [live, setLive] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,11 @@ export function ExecutionDetail() {
   }, [id]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [events.length]);
+
+  // artifacts appear once jobs finish; refetch when the run reaches a terminal state
+  useEffect(() => {
+    api.getArtifacts(id).then(setArtifacts).catch(() => {});
+  }, [id, status]);
 
   const jobStatus = useMemo(() => {
     const m: Record<string, string> = {};
@@ -83,6 +89,30 @@ export function ExecutionDetail() {
         <div style={{ marginBottom: 28 }}>
           <h3 className="display" style={{ fontSize: 18, marginBottom: 14 }}>The weave</h3>
           <DagView jobs={jobs} statuses={jobStatus} />
+        </div>
+      )}
+
+      {artifacts.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <h3 className="display" style={{ fontSize: 18, marginBottom: 14 }}>Artifacts</h3>
+          <div className="panel" style={{ overflow: "hidden" }}>
+            <table className="table">
+              <thead><tr><th>Name</th><th>Type</th><th>Size</th><th></th></tr></thead>
+              <tbody>
+                {artifacts.map((a) => (
+                  <tr key={a.id}>
+                    <td className="mono">{a.name}</td>
+                    <td className="dim">{a.content_type ?? "—"}</td>
+                    <td className="dim">{a.size_bytes} B</td>
+                    <td style={{ textAlign: "right" }}>
+                      <a className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 12 }}
+                        href={a.download_url} target="_blank" rel="noreferrer">Download</a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

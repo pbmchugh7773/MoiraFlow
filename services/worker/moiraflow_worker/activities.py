@@ -10,6 +10,7 @@ is orthogonal to this execution contract.
 from __future__ import annotations
 
 import subprocess
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -19,6 +20,7 @@ from temporalio import activity
 from .events import get_redis, publish_to_redis
 from .interpreter import JobRequest, JobResult
 from .secrets import redact, resolve_reference
+from .storage import upload_artifacts
 
 
 @activity.defn(name="publish_event")
@@ -48,9 +50,18 @@ def run_command_job(request: JobRequest) -> JobResult:
         raise RuntimeError(
             f"command exited {completed.returncode}: {completed.stderr.strip()[:500]}"
         )
+    # Upload any declared artifacts to object storage (refs only go to Postgres).
+    artifacts: list[dict[str, Any]] = []
+    declared = request.inputs.get("artifacts") or []
+    if declared:
+        prefix = f"{request.tenant_id or 'default'}/{request.job_id}/{uuid.uuid4().hex[:8]}"
+        try:
+            artifacts = upload_artifacts(list(declared), prefix)
+        except Exception:  # pragma: no cover - best effort; depends on MinIO
+            activity.logger.warning("artifact upload failed", exc_info=True)
     # MVP: a command job exposes its declared outputs verbatim. Extracting values
     # from stdout is a later enhancement.
-    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec))
+    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec), artifacts=artifacts)
 
 
 async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> int:

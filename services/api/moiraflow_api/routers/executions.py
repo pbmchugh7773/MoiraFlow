@@ -18,7 +18,9 @@ from ..deps import (
     require_roles,
 )
 from ..live import manager
+from .. import storage
 from ..schemas.executions import (
+    ArtifactOut,
     CreateExecutionRequest,
     ExecutionEventOut,
     ExecutionOut,
@@ -141,6 +143,26 @@ def get_execution_jobs(
     svc.get_execution(session, execution_id)  # 404 if missing
     rows = events_svc.list_job_executions(session, execution_id)
     return [JobExecutionOut.model_validate(j) for j in rows]
+
+
+@router.get("/{execution_id}/artifacts", response_model=list[ArtifactOut])
+def get_execution_artifacts(
+    execution_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    _: models.User = Depends(get_current_user),
+) -> list[ArtifactOut]:
+    svc.get_execution(session, execution_id)  # 404 if missing
+    return [
+        ArtifactOut(
+            id=a.id,
+            name=a.name,
+            size_bytes=a.size_bytes,
+            content_type=a.content_type,
+            created_at=a.created_at,
+            download_url=storage.presigned_url(a.object_key, a.bucket),
+        )
+        for a in events_svc.list_artifacts(session, execution_id)
+    ]
 
 
 @router.get("/{execution_id}/definition")

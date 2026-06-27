@@ -37,6 +37,15 @@ class ExecutionEventOut(BaseModel):
     created_at: datetime
 
 
+class ArtifactOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    size_bytes: int
+    content_type: str | None
+    download_url: str
+    created_at: datetime
+
+
 class JobExecutionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

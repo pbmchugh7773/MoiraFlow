@@ -21,6 +21,10 @@ export interface ExecutionEvent {
   id: number; event_type: string; payload: Record<string, unknown>;
   job_execution_id: string | null; created_at: string;
 }
+export interface Artifact {
+  id: string; name: string; size_bytes: number; content_type: string | null;
+  download_url: string; created_at: string;
+}
 export interface ValidationError { code: string; message: string; loc: string }
 export interface ValidationResult { valid: boolean; errors: ValidationError[] }
 
@@ -101,6 +105,7 @@ export const api = {
     request<Execution>("/executions", { method: "POST", body: JSON.stringify({ workflow_id }) }),
   replay: (id: string) => request<Execution>(`/executions/${id}/replay`, { method: "POST" }),
   getEvents: (id: string) => request<ExecutionEvent[]>(`/executions/${id}/events`),
+  getArtifacts: (id: string) => request<Artifact[]>(`/executions/${id}/artifacts`),
   getExecutionDefinition: (id: string) =>
     request<WorkflowDefinition>(`/executions/${id}/definition`),
 };

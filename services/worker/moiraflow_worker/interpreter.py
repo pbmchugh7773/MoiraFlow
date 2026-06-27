@@ -38,6 +38,7 @@ class JobResult:
     job_id: str
     outputs: dict[str, Any] = field(default_factory=dict)
     status: str = "success"
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
 
 
 RunJob = Callable[[JobRequest], Awaitable[JobResult]]
@@ -123,6 +124,10 @@ async def _execute(
         await emit({"type": "job_failed", "job_id": request.job_id, "payload": {"error": str(exc)}})
         raise
     await emit(
-        {"type": "job_succeeded", "job_id": request.job_id, "payload": {"outputs": result.outputs}}
+        {
+            "type": "job_succeeded",
+            "job_id": request.job_id,
+            "payload": {"outputs": result.outputs, "artifacts": result.artifacts},
+        }
     )
     return result

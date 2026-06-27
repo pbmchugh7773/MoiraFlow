@@ -146,5 +146,33 @@ def test_job_executions_projected_from_events(session, execution):
     assert by_id["a"].finished_at is not None
 
 
+def test_artifacts_persisted_from_job_succeeded(session, execution):
+    svc.handle_event(session, _job_ev("job_started", "a", {"type": "command"}))
+    svc.handle_event(
+        session,
+        _job_ev(
+            "job_succeeded",
+            "a",
+            {
+                "outputs": {},
+                "artifacts": [
+                    {
+                        "name": "out.csv",
+                        "bucket": "arts",
+                        "object_key": "a/out.csv",
+                        "size_bytes": 42,
+                        "content_type": "text/csv",
+                    }
+                ],
+            },
+        ),
+    )
+    arts = svc.list_artifacts(session, execution.id)
+    assert len(arts) == 1
+    assert arts[0].name == "out.csv"
+    assert arts[0].object_key == "a/out.csv"
+    assert arts[0].job_execution_id is not None
+
+
 def test_event_without_workflow_id_is_ignored(session):
     assert svc.handle_event(session, {"type": "execution_started", "payload": {}}) is None

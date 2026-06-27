@@ -21,6 +21,11 @@ JOB_TYPES: list[dict[str, Any]] = [
                 "command": {"type": "string", "description": "Shell command to run."},
                 "env": {"type": "object", "additionalProperties": {"type": "string"}},
                 "working_dir": {"type": "string"},
+                "artifacts": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "File paths to upload to object storage after the command.",
+                },
             },
         },
         "output_schema": {"type": "object", "description": "Declared outputs (user-defined)."},
