@@ -9,7 +9,10 @@ is orthogonal to this execution contract.
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
+import tempfile
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -19,6 +22,7 @@ from temporalio import activity
 
 from .events import get_redis, publish_to_redis
 from .interpreter import JobRequest, JobResult
+from .isolation import apply_limits
 from .secrets import redact, resolve_reference
 from .storage import upload_artifacts
 
@@ -34,34 +38,44 @@ def publish_event(event: dict[str, Any]) -> None:
 
 @activity.defn(name="run_command_job")
 def run_command_job(request: JobRequest) -> JobResult:
-    command = request.inputs.get("command", "")
-    env = request.inputs.get("env")
-    working_dir = request.inputs.get("working_dir")
-    completed = subprocess.run(
-        command,
-        shell=True,  # a `command` job runs a shell command by definition
-        capture_output=True,
-        text=True,
-        cwd=working_dir,
-        env=env,
-    )
-    if completed.returncode != 0:
-        # Raising lets Temporal apply the job's RetryPolicy.
-        raise RuntimeError(
-            f"command exited {completed.returncode}: {completed.stderr.strip()[:500]}"
+    inputs = request.inputs
+    command = inputs.get("command", "")
+    env = inputs.get("env")
+    explicit_wd = inputs.get("working_dir")
+    # Run in an ephemeral working dir (cleaned up after) unless one is pinned, with
+    # CPU/memory/file-size limits applied to the child (docs 05 §4.4).
+    workdir = explicit_wd or tempfile.mkdtemp(prefix="moiraflow-cmd-")
+    try:
+        completed = subprocess.run(
+            command,
+            shell=True,  # a `command` job runs a shell command by definition
+            capture_output=True,
+            text=True,
+            cwd=workdir,
+            env=env,
+            preexec_fn=apply_limits,
         )
-    # Upload any declared artifacts to object storage (refs only go to Postgres).
-    artifacts: list[dict[str, Any]] = []
-    declared = request.inputs.get("artifacts") or []
-    if declared:
-        prefix = f"{request.tenant_id or 'default'}/{request.job_id}/{uuid.uuid4().hex[:8]}"
-        try:
-            artifacts = upload_artifacts(list(declared), prefix)
-        except Exception:  # pragma: no cover - best effort; depends on MinIO
-            activity.logger.warning("artifact upload failed", exc_info=True)
-    # MVP: a command job exposes its declared outputs verbatim. Extracting values
-    # from stdout is a later enhancement.
-    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec), artifacts=artifacts)
+        if completed.returncode != 0:
+            # Raising lets Temporal apply the job's RetryPolicy.
+            raise RuntimeError(
+                f"command exited {completed.returncode}: {completed.stderr.strip()[:500]}"
+            )
+        # Upload declared artifacts (relative paths resolve against the workdir).
+        artifacts: list[dict[str, Any]] = []
+        declared = inputs.get("artifacts") or []
+        if declared:
+            paths = [p if os.path.isabs(p) else os.path.join(workdir, p) for p in declared]
+            prefix = f"{request.tenant_id or 'default'}/{request.job_id}/{uuid.uuid4().hex[:8]}"
+            try:
+                artifacts = upload_artifacts(paths, prefix)
+            except Exception:  # pragma: no cover - best effort; depends on MinIO
+                activity.logger.warning("artifact upload failed", exc_info=True)
+        return JobResult(
+            job_id=request.job_id, outputs=dict(request.outputs_spec), artifacts=artifacts
+        )
+    finally:
+        if explicit_wd is None:
+            shutil.rmtree(workdir, ignore_errors=True)
 
 
 async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> int:
