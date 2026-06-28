@@ -181,7 +181,33 @@ declares no inputs, you can add ad-hoc key/value pairs or simply run it.
 - **Users:** create users, assign roles, activate/deactivate.
 - **Agents:** the remote-agent lifecycle — enroll (single-use token) → register (CSR signed
   by the internal CA) → **approve** (explicit approval, no trust-on-first-use) → revoke. A
-  revoked agent cannot operate (the revocation gate blocks it).
+  revoked agent cannot operate (the revocation gate blocks it). To install and run an agent
+  on a machine, see the **[Installation Guide → Installing a remote agent](INSTALLATION.md#11-installing-a-remote-agent)**.
+
+### Running a job on an agent (`run_on: agent`)
+
+By default jobs run on the server worker. To run a `command` job on a specific agent
+machine instead, set `run_on: agent` and select the target with `agent_selector`:
+
+```yaml
+jobs:
+  - id: on_prem_backup
+    type: command
+    run_on: agent
+    agent_selector: { agent_id: "<agent_id>" }   # routes to the queue agent-<id>
+    with: { command: ./backup.sh }
+```
+
+How it routes: the interpreter still runs on the server, but the job's activity is enqueued
+on the agent's exclusive task queue (`agent-<id>`), so only that agent picks it up. With no
+`agent_selector`, it routes to the local agent (`agent-local`). The agent runs **only**
+`command` jobs and never receives database access, tenant credentials, or the secrets
+master key — secrets are sealed per-agent (envelope encryption) so a stolen task can't leak
+them.
+
+A job sent to an agent that is offline or revoked simply waits in the queue (and a revoked
+agent can't reconnect to pick it up); approve/enable the agent to drain it, or cancel the
+execution.
 
 ---
 
@@ -267,6 +293,15 @@ this is fixed — the subscriber now does its database I/O off the event loop.)
 It runs in an **ephemeral workdir** as an unprivileged user with CPU/memory limits. Use
 relative paths for `artifacts` (resolved against the workdir) or absolute paths.
 
+### A job routed to an agent never runs
+
+A `run_on: agent` job is enqueued on `agent-<id>` and only that agent picks it up. If it
+sits pending: the agent may be **offline** (not running / can't reach Temporal), **not yet
+approved**, or **revoked** (a revoked agent can't reconnect). Check the agent's status under
+**Agents**, confirm its process is up and pointed at the right `TEMPORAL_HOST` /
+`MOIRAFLOW_AGENT_QUEUE`, and that `agent_selector.agent_id` matches. See the
+**[Installation Guide → Installing a remote agent](INSTALLATION.md#11-installing-a-remote-agent)**.
+
 ### Secrets in logs
 
 `secret://` values and passwords embedded in URLs are **redacted** automatically (`***`).
@@ -274,5 +309,5 @@ If you ever see a secret in clear text, please report it — that's a redactor b
 
 ### Resetting test data
 
-See the **[Installation Guide → §7](INSTALLATION.md#7-common-operations)** for the cleanup
-SQL script.
+See the **[Installation Guide → Common operations](INSTALLATION.md#8-common-operations)** for
+the cleanup SQL script.

@@ -16,14 +16,14 @@ Vite + React + TS. Typed client (`src/api.ts`) mirrors the OpenAPI; `src/auth.ts
 - `services/api/moiraflow_api/{config,deps}.py` — env settings + DI: per-request `get_session` (commit/rollback), `get_default_tenant`, `get_workflow_starter` (override in tests).
 - `services/api/moiraflow_api/db/` — persistence: `base.py` (DeclarativeBase + portable types — JSONB/CITEXT/INET with Postgres variants so models run on sqlite in tests), `models.py` (full docs-03 schema, 12 tables, `tenant_id` everywhere), `session.py`. Tested on in-memory sqlite. **TODO:** Alembic migration (pairs with the docker-compose/Postgres slice).
 - `services/api/moiraflow_api/auth/` + `services/users.py` — JWT auth: argon2id password hashing + HS256 tokens (`security.py`), `POST /auth/login` + `GET /auth/me`, and DI guards `get_current_user`/`get_current_tenant`/`require_roles(...)` enforcing the docs-04 RBAC matrix (admin always allowed; developers create/edit workflows; operators+developers launch executions; all roles read). `AuthError` → 401/403 envelope. Endpoints now require a Bearer token; tests authenticate via `tests/_helpers.py` (seed user + override `get_current_user`).
-- The workflow schema `apiVersion` is **`moiraflow/v1`**. MVP still runs a single default tenant (multi-tenancy is schema-ready). No `create_admin` bootstrap script yet — seed users directly for now.
+- The workflow schema `apiVersion` is **`moiraflow/v1`**. MVP still runs a single default tenant (multi-tenancy is schema-ready). The `create_admin` bootstrap script exists (`moiraflow_api/scripts/create_admin.py`).
 - `services/worker/moiraflow_worker/` — the Temporal interpreter: `templating.py` (pure deterministic `{{ }}` rendering), `scheduling.py` (pure DAG readiness), `interpreter.py` (`run_dag` — pure async orchestration with an injected `run_job`, parallel fan-out, declared-output propagation), `workflow.py` (`FlowInterpreter` `@workflow.defn` thin adapter; maps per-job `timeout`/`retry` → Temporal via `durations.py`/`policies.py`), `activities.py` (`run_command_job`, `run_rest_job` with an `execute_rest` seam tested via `httpx.MockTransport`), `runtime.py` (`build_worker`). Pure core is unit-tested; `tests/test_workflow_integration.py` runs a real 2-job DAG against `WorkflowEnvironment.start_local()`. **Still TODO:** `sql` activity (depends on secrets+DB slices), replay tests in CI (ADR-0011).
 - Plan + TDD task breakdown: `docs/superpowers/plans/2026-06-24-workflow-validation-core.md`.
 
 ### Dev workflow for `services/api` (local Python is 3.10, not 3.12 — code runs on both)
 Tests run with **no editable install** (pytest `pythonpath` config). From `services/api/`:
 ```bash
-python3 -m pytest -q                          # 35 tests
+python3 -m pytest -q                          # 164 tests
 python3 -m ruff check moiraflow_api tests
 python3 -m black --check moiraflow_api tests
 python3 -m mypy moiraflow_api                    # strict
@@ -78,7 +78,7 @@ Data flow for an execution: API starts the interpreter Temporal workflow with a 
 
 ## Planned stack & layout
 
-Monorepo (`services/api`, `services/worker`, `services/agent`, `services/frontend`; `packages/shared-schemas`; `deploy/`). Each Python service keeps its own `pyproject.toml`; the frontend its own `package.json`.
+Monorepo target layout (`services/api`, `services/worker`, `services/agent`, `services/frontend`; `packages/shared-schemas`; `deploy/`). Each Python service keeps its own `pyproject.toml`; the frontend its own `package.json`. **Built today:** `services/api`, `services/worker`, `services/frontend`, `deploy/`. **Not yet scaffolded as their own dirs:** `services/agent` (the agent currently *is* the worker runtime on a dedicated task queue — see below) and `packages/shared-schemas`.
 
 - **API**: Python 3.12, FastAPI, Pydantic v2, Uvicorn, SQLAlchemy 2, Alembic
 - **Worker/Agent**: Python + Temporal Python SDK
@@ -101,6 +101,10 @@ docker compose exec api python -m moiraflow_api.scripts.create_admin   # initial
 ```
 
 Schema changes go through Alembic (`alembic revision --autogenerate -m "..."`, review, commit) — never hand-edit the schema in any environment. Regenerate the frontend API client from the API's OpenAPI after API contract changes.
+
+## Keep the manuals current (REQUIRED on every commit)
+
+`docs/INSTALLATION.md` (installation & setup) and `docs/USER-GUIDE.md` (usage & troubleshooting) are the user-facing manuals and must stay accurate. **On every commit, check whether the change affects either manual and update it in the same commit.** A change touches the manuals when it adds/renames/removes an env var, endpoint, CLI command, port, config flag, job field, trigger, default behavior, or setup/deploy step — or when it introduces a new failure mode worth a troubleshooting entry. If a commit genuinely has no user-facing impact (pure refactor, internal test), no manual update is needed — but make that a conscious check, not an omission. Both manuals are in **English** (like the product/code; the `0X-*.md` design docs stay Spanish).
 
 ## When scaffolding (suggested first tickets, from `docs/07`)
 
