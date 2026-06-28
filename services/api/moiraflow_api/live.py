@@ -53,11 +53,20 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def _handle_message(factory: sessionmaker[Session], event: dict[str, Any]) -> None:
+def _persist_event(factory: sessionmaker[Session], event: dict[str, Any]) -> str | None:
+    """Synchronous DB work for one event. Returns the execution id to fan out to."""
     with factory() as session:
         row = handle_event(session, event)
         session.commit()
-        execution_id = str(row.execution_id) if row is not None else None
+        return str(row.execution_id) if row is not None else None
+
+
+async def _handle_message(factory: sessionmaker[Session], event: dict[str, Any]) -> None:
+    # Run the blocking DB work in a thread so it can never stall the event loop. Doing
+    # the synchronous session checkout/commit directly on the loop could deadlock the
+    # whole API if the connection pool is momentarily exhausted by in-flight requests.
+    loop = asyncio.get_running_loop()
+    execution_id = await loop.run_in_executor(None, _persist_event, factory, event)
     if execution_id is not None:
         await manager.broadcast(execution_id, event)
 

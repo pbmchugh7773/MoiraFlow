@@ -20,6 +20,7 @@ from temporalio.client import (
     ScheduleUpdateInput,
 )
 from temporalio.common import WorkflowIDReusePolicy
+from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from .encryption import data_converter
 
@@ -61,14 +62,21 @@ class TemporalWorkflowStarter:
         meta: dict[str, str],
     ) -> str:
         client = await self._connect()
-        handle = await client.start_workflow(
-            INTERPRETER_WORKFLOW,
-            args=[definition, input_context, meta],
-            id=temporal_workflow_id,
-            task_queue=task_queue,
-            id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
-        )
-        return handle.first_execution_run_id or ""
+        try:
+            handle = await client.start_workflow(
+                INTERPRETER_WORKFLOW,
+                args=[definition, input_context, meta],
+                id=temporal_workflow_id,
+                task_queue=task_queue,
+                id_reuse_policy=WorkflowIDReusePolicy.REJECT_DUPLICATE,
+            )
+            return handle.first_execution_run_id or ""
+        except WorkflowAlreadyStartedError:
+            # The deterministic id already exists (ADR-0014): the executions
+            # projection diverged from Temporal. Reconcile to the existing run
+            # instead of failing the launch, so the call stays idempotent.
+            description = await client.get_workflow_handle(temporal_workflow_id).describe()
+            return description.run_id or ""
 
     def cancel(self, *, temporal_workflow_id: str) -> None:
         asyncio.run(self._cancel(temporal_workflow_id))
