@@ -16,8 +16,8 @@ encryption, revocation gate) · and a React UI for all of it.
 > The Moirai wove the thread of destiny — MoiraFlow weaves the threads of your workflows'
 > durable execution. Design docs live in [`docs/`](docs/) (Spanish; product/code in English).
 
-📖 **Guías (español):** [Manual de Instalación y Setup](docs/MANUAL-INSTALACION.md) ·
-[Manual de Uso y Troubleshooting](docs/MANUAL-USO.md)
+📖 **Guides:** [Installation & Setup](docs/INSTALLATION.md) ·
+[User Guide & Troubleshooting](docs/USER-GUIDE.md)
 
 ## Quickstart (Docker)
 
