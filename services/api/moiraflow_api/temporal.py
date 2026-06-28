@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any, TypeVar
 
 from temporalio.client import (
@@ -30,12 +31,40 @@ from temporalio.client import (
 )
 from temporalio.common import WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
+from temporalio.service import TLSConfig
 
+from .config import get_settings
 from .encryption import data_converter
 
 INTERPRETER_WORKFLOW = "FlowInterpreter"
 
 T = TypeVar("T")
+
+
+def _tls_material(value: str) -> bytes | None:
+    """Resolve a PEM setting: inline PEM text or a path to a PEM file."""
+    if not value:
+        return None
+    if value.lstrip().startswith("-----BEGIN"):
+        return value.encode()
+    return Path(value).read_bytes()
+
+
+def build_tls_config() -> TLSConfig | bool:
+    """mTLS to Temporal from settings (docs 05 §5); False (plaintext) if unconfigured."""
+    settings = get_settings()
+    ca = _tls_material(settings.tls_server_ca)
+    cert = _tls_material(settings.tls_client_cert)
+    key = _tls_material(settings.tls_client_key)
+    if ca is None and cert is None and key is None:
+        return False
+    return TLSConfig(
+        server_root_ca_cert=ca,
+        client_cert=cert,
+        client_private_key=key,
+        domain=settings.tls_server_name or None,
+    )
+
 
 # Temporal's terminal statuses → MoiraFlow's projection status. RUNNING /
 # CONTINUED_AS_NEW map to nothing (still in flight → leave the row unchanged).
@@ -82,6 +111,7 @@ class _TemporalRuntime:
                 self._address,
                 namespace=self._namespace,
                 data_converter=data_converter(self._master_key),
+                tls=build_tls_config(),
             )
         return self._client
 

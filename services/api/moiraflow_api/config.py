@@ -25,6 +25,11 @@ class Settings:
     s3_access_key: str = os.getenv("S3_ACCESS_KEY", "minioadmin")
     s3_secret_key: str = os.getenv("S3_SECRET_KEY", "minioadmin")
     s3_bucket: str = os.getenv("S3_BUCKET", "moiraflow-artifacts")
+    # mTLS to Temporal (docs 05 §5): inline PEM or file path; empty -> plaintext.
+    tls_server_ca: str = os.getenv("MOIRAFLOW_TLS_SERVER_CA", "")
+    tls_client_cert: str = os.getenv("MOIRAFLOW_TLS_CLIENT_CERT", "")
+    tls_client_key: str = os.getenv("MOIRAFLOW_TLS_CLIENT_KEY", "")
+    tls_server_name: str = os.getenv("MOIRAFLOW_TLS_SERVER_NAME", "")
 
 
 def get_settings() -> Settings:

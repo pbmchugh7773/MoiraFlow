@@ -10,16 +10,19 @@ from temporalio.client import Client
 
 from .encryption import data_converter
 from .runtime import SERVER_TASK_QUEUE, build_worker
+from .tls import build_tls_config
 
 
 async def _connect_with_retry(
     address: str, namespace: str, attempts: int = 30, delay: float = 2.0
 ) -> Client:
+    # mTLS when certs are configured (docs 05 §5); False = plaintext (dev default).
+    tls = build_tls_config(os.environ) or False
     last_error: Exception | None = None
     for _ in range(attempts):
         try:
             return await Client.connect(
-                address, namespace=namespace, data_converter=data_converter()
+                address, namespace=namespace, data_converter=data_converter(), tls=tls
             )
         except Exception as exc:  # Temporal may not be ready yet at startup
             last_error = exc
