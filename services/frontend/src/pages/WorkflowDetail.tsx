@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, ApiError, token, type Execution, type JobDef, type Workflow, type WorkflowVersion } from "../api";
+import { api, ApiError, token, type Execution, type JobDef, type Workflow, type WorkflowDefinition, type WorkflowVersion } from "../api";
 import { canLaunch, canWrite, useAuth } from "../auth";
 import { DagView, StatusBadge } from "../components";
+import { WorkflowBuilder } from "./WorkflowBuilder";
 
 export function WorkflowDetail() {
   const { id = "" } = useParams();
@@ -12,6 +13,8 @@ export function WorkflowDetail() {
   const [versions, setVersions] = useState<WorkflowVersion[]>([]);
   const [runs, setRuns] = useState<Execution[]>([]);
   const [jobs, setJobs] = useState<JobDef[]>([]);
+  const [definition, setDefinition] = useState<WorkflowDefinition | null>(null);
+  const [editing, setEditing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const reload = () => {
@@ -21,7 +24,10 @@ export function WorkflowDetail() {
         setVersions(vs);
         const active = vs.find((v) => v.id === w.active_version_id) ?? vs[vs.length - 1];
         if (active) {
-          api.getVersion(id, active.version).then((d) => setJobs(d.definition.spec.jobs ?? [])).catch(() => {});
+          api.getVersion(id, active.version).then((d) => {
+            setJobs(d.definition.spec.jobs ?? []);
+            setDefinition(d.definition);
+          }).catch(() => {});
         }
       }).catch(() => {});
     }).catch(() => setErr("Workflow not found"));
@@ -61,6 +67,9 @@ export function WorkflowDetail() {
           {wf.description && <p className="dim" style={{ marginTop: 6 }}>{wf.description}</p>}
         </div>
         <div className="row" style={{ gap: 10 }}>
+          {canWrite(user?.role) && definition && (
+            <button className="btn" onClick={() => setEditing((v) => !v)}>{editing ? "Close editor" : "Edit"}</button>
+          )}
           {canWrite(user?.role) && (
             <button className="btn" onClick={() =>
               (wf.is_enabled ? api.disableWorkflow(id) : api.enableWorkflow(id)).then(reload)}>
@@ -79,6 +88,15 @@ export function WorkflowDetail() {
         </div>
       </div>
       {err && <div className="err" style={{ marginBottom: 16 }}>{err}</div>}
+
+      {editing && definition && (
+        <div style={{ marginBottom: 24 }}>
+          <WorkflowBuilder
+            editWorkflow={{ id, definition }}
+            onSaved={() => { setEditing(false); reload(); }}
+          />
+        </div>
+      )}
 
       <div className="row" style={{ gap: 10, marginBottom: 24 }}>
         <span className="pill">trigger: {wf.trigger_type}</span>

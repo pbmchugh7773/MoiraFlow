@@ -102,6 +102,10 @@ export const api = {
   deleteSecret: (key: string) => request<void>(`/secrets/${key}`, { method: "DELETE" }),
   createWorkflow: (content: string, format: "yaml" | "json") =>
     request<Workflow>("/workflows", { method: "POST", body: JSON.stringify({ content, format }) }),
+  createVersion: (id: string, content: string, format: "yaml" | "json") =>
+    request<WorkflowVersion>(`/workflows/${id}/versions`, {
+      method: "POST", body: JSON.stringify({ content, format }),
+    }),
   listVersions: (id: string) => request<WorkflowVersion[]>(`/workflows/${id}/versions`),
   getVersion: (id: string, version: number) =>
     request<WorkflowVersion & { definition: WorkflowDefinition }>(`/workflows/${id}/versions/${version}`),
