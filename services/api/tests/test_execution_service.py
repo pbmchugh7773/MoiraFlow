@@ -183,16 +183,18 @@ def test_replay_creates_new_execution_linked_to_original(session, tenant, workfl
     assert replay.replay_of_execution_id == original.id
     assert replay.trigger_source == "replay"
     assert replay.input_context == {"x": 1}
-    assert replay.temporal_workflow_id.endswith("-replay-1")
+    assert replay.temporal_workflow_id.startswith(f"{original.temporal_workflow_id}-replay-")
     assert len(starter.calls) == 2
 
 
-def test_second_replay_increments_suffix(session, tenant, workflow):
+def test_each_replay_gets_a_unique_fresh_id(session, tenant, workflow):
+    # Replays never collide: each is an explicit re-run with its own durable id.
     starter = FakeStarter()
     original = ex.create_execution(session, tenant.id, workflow.id, starter)
-    ex.replay_execution(session, tenant.id, original.id, starter)
+    first = ex.replay_execution(session, tenant.id, original.id, starter)
     second = ex.replay_execution(session, tenant.id, original.id, starter)
-    assert second.temporal_workflow_id.endswith("-replay-2")
+    assert first.temporal_workflow_id != second.temporal_workflow_id
+    assert len(starter.calls) == 3  # original + two distinct replays
 
 
 def test_cancel_running_execution(session, tenant, workflow):

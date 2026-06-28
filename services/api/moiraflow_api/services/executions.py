@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import models
@@ -167,22 +167,10 @@ def replay_execution(
     if version is None:  # pragma: no cover - FK guards this
         raise ExecutionNotFoundError("original version missing")
 
-    replay_count = (
-        session.scalar(
-            select(func.count())
-            .select_from(models.Execution)
-            .where(models.Execution.replay_of_execution_id == original.id)
-        )
-        or 0
-    )
-    temporal_workflow_id = f"{original.temporal_workflow_id}-replay-{replay_count + 1}"
-    existing = session.scalar(
-        select(models.Execution).where(
-            models.Execution.temporal_workflow_id == temporal_workflow_id
-        )
-    )
-    if existing is not None:
-        return existing
+    # A replay is an explicit re-run, never idempotent: each one gets a unique id so
+    # it always starts a genuinely fresh durable run and can never collide with a
+    # leftover Temporal workflow (which would silently reuse an old run).
+    temporal_workflow_id = f"{original.temporal_workflow_id}-replay-{uuid.uuid4().hex[:8]}"
 
     run_id = starter.start(
         temporal_workflow_id=temporal_workflow_id,
