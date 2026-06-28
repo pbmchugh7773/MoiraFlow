@@ -2,6 +2,7 @@ import asyncio
 
 import httpx
 import pytest
+from temporalio.exceptions import ApplicationError
 
 from moiraflow_worker.activities import _stream_command, execute_rest, run_command_job
 from moiraflow_worker.interpreter import JobRequest
@@ -42,6 +43,17 @@ def test_run_rest_job_exposes_status_and_body_as_outputs():
     status, body = asyncio.run(run())
     assert status == 200
     assert body == {"status": "healthy"}
+
+
+def test_execute_rest_invalid_url_is_non_retryable():
+    # A malformed URL (e.g. the unfilled "https://" placeholder) can never succeed.
+    async def run():
+        async with httpx.AsyncClient() as client:
+            await execute_rest({"method": "GET", "url": "https://"}, client)
+
+    with pytest.raises(ApplicationError) as exc:
+        asyncio.run(run())
+    assert exc.value.non_retryable
 
 
 def test_execute_rest_raises_on_unexpected_status():

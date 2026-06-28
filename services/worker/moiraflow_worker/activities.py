@@ -22,12 +22,17 @@ from typing import Any
 
 import httpx
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from .events import get_redis, publish_to_redis
 from .interpreter import JobRequest, JobResult
 from .isolation import apply_limits
 from .secrets import redact, resolve_reference
 from .storage import upload_artifacts
+
+# Misconfigurations that can never succeed by retrying — fail fast on the first
+# attempt instead of burning the retry budget and delaying the run's failure.
+_PERMANENT_URL_ERRORS = (httpx.UnsupportedProtocol, httpx.InvalidURL)
 
 
 @activity.defn(name="publish_event")
@@ -170,12 +175,20 @@ async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> tup
 
     Separated from the activity so it can be tested offline with httpx.MockTransport.
     """
-    response = await client.request(
-        inputs["method"],
-        inputs["url"],
-        headers=inputs.get("headers"),
-        json=inputs.get("body"),
-    )
+    try:
+        response = await client.request(
+            inputs["method"],
+            inputs["url"],
+            headers=inputs.get("headers"),
+            json=inputs.get("body"),
+        )
+    except _PERMANENT_URL_ERRORS as exc:
+        # A malformed URL is a config error — non-retryable so it fails immediately.
+        raise ApplicationError(
+            f"invalid url for {inputs.get('method')} {redact(str(inputs.get('url')))}: {exc}",
+            type="InvalidRequest",
+            non_retryable=True,
+        ) from exc
     expected = inputs.get("expect_status")
     if expected and response.status_code not in expected:
         raise RuntimeError(

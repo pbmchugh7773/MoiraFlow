@@ -3,6 +3,7 @@ import hashlib
 
 import pytest
 from cryptography.fernet import Fernet
+from temporalio.exceptions import ApplicationError
 
 from moiraflow_worker.activities import run_sql_job
 from moiraflow_worker.interpreter import JobRequest
@@ -27,9 +28,11 @@ def test_resolve_reference_passes_through_direct_dsn():
     assert resolve_reference("sqlite://", "tenant-1") == "sqlite://"
 
 
-def test_resolve_reference_secret_without_tenant_raises():
-    with pytest.raises(RuntimeError):
+def test_resolve_reference_secret_without_tenant_is_non_retryable():
+    # A secret that can't be resolved is a config error, not a transient failure.
+    with pytest.raises(ApplicationError) as exc:
         resolve_reference("secret://pg_main", None)
+    assert exc.value.non_retryable
 
 
 def test_run_sql_job_executes_against_direct_dsn():
