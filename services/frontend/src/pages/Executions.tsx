@@ -28,12 +28,13 @@ export function Executions() {
           : items.length === 0 ? <div className="empty">No executions yet. Launch a workflow.</div>
           : (
             <table className="table">
-              <thead><tr><th>Status</th><th>Execution</th><th>Trigger</th><th>Run id</th><th>Started</th></tr></thead>
+              <thead><tr><th>Status</th><th>Workflow</th><th>Execution</th><th>Trigger</th><th>Run id</th><th>Started</th></tr></thead>
               <tbody>
                 {items.map((r, i) => (
                   <motion.tr key={r.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.02 }} onClick={() => nav(`/executions/${r.id}`)}>
                     <td><StatusBadge status={r.status} /></td>
+                    <td style={{ fontWeight: 500 }}>{r.workflow_name ?? "—"}</td>
                     <td className="mono dim">{r.id.slice(0, 8)}</td>
                     <td><span className="pill">{r.trigger_source}</span></td>
                     <td className="mono faint">{r.temporal_run_id?.slice(0, 8) ?? "—"}</td>

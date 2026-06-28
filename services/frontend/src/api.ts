@@ -14,7 +14,8 @@ export interface WorkflowVersion {
   id: string; version: number; definition_hash: string; source_format: string; created_at: string;
 }
 export interface Execution {
-  id: string; workflow_id: string; workflow_version_id: string; temporal_workflow_id: string;
+  id: string; workflow_id: string; workflow_name: string | null;
+  workflow_version_id: string; temporal_workflow_id: string;
   temporal_run_id: string | null; status: Status; trigger_source: string;
   input_context: Record<string, unknown>; created_at: string;
 }

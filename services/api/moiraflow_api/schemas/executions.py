@@ -20,6 +20,7 @@ class ExecutionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     workflow_id: uuid.UUID
+    workflow_name: str | None = None
     workflow_version_id: uuid.UUID
     temporal_workflow_id: str
     temporal_run_id: str | None

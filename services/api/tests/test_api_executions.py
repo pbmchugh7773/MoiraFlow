@@ -77,8 +77,10 @@ def test_get_and_list_executions(client):
     detail = client.get(f"/api/v1/executions/{created['id']}")
     assert detail.status_code == 200
     assert detail.json()["id"] == created["id"]
+    assert detail.json()["workflow_name"] == "daily_import"
     listing = client.get(f"/api/v1/executions?workflow_id={wid}").json()
     assert len(listing) == 1
+    assert listing[0]["workflow_name"] == "daily_import"
 
 
 def test_execution_definition_returns_jobs(client):

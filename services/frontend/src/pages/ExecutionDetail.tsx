@@ -74,7 +74,8 @@ export function ExecutionDetail() {
       <div className="page-head">
         <div>
           <div className="eyebrow">Execution</div>
-          <h1 className="page-title mono" style={{ fontSize: 24 }}>{id.slice(0, 8)}</h1>
+          <h1 className="page-title" style={{ fontSize: 24 }}>{exec?.workflow_name ?? id.slice(0, 8)}</h1>
+          {exec?.workflow_name && <div className="mono faint" style={{ fontSize: 12, marginTop: 4 }}>{id.slice(0, 8)}</div>}
         </div>
         <div className="row" style={{ gap: 14 }}>
           {live && <span className="status running"><span className="dot" style={{ background: "currentColor" }} />live</span>}

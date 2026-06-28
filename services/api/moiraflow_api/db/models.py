@@ -22,7 +22,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, EmailType, IPType, JSONType, TimestampMixin, uuid_pk
 
@@ -103,6 +103,14 @@ class Execution(Base):
     error: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     replay_of_execution_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("executions.id"))
     created_at: Mapped[datetime] = _created_at()
+
+    # Eager many-to-one so the executions list/detail can show the workflow name
+    # without an N+1 (no schema change — the FK already exists).
+    workflow: Mapped["Workflow"] = relationship(lazy="joined")
+
+    @property
+    def workflow_name(self) -> str | None:
+        return self.workflow.name if self.workflow is not None else None
 
 
 class JobExecution(Base):
