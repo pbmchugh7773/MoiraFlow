@@ -285,7 +285,13 @@ function toYaml(
     ...(Object.keys(ctx).length ? { context: ctx } : {}),
     jobs,
   };
-  return stringify({ apiVersion: "moiraflow/v1", kind: "Workflow", metadata: { name }, spec });
+  // Serialize as YAML 1.1: the API parses with PyYAML (1.1), where yes/no/on/off
+  // are booleans. The js-yaml default (1.2) leaves them unquoted, so a string
+  // value like "yes" would reparse as a bool and fail dict[str,str] validation.
+  return stringify(
+    { apiVersion: "moiraflow/v1", kind: "Workflow", metadata: { name }, spec },
+    { version: "1.1" },
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
