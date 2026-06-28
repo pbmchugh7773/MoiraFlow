@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine
@@ -26,6 +27,8 @@ class FakeStarter:
     def __init__(self):
         self.calls = []
         self.cancelled = []
+        self.describe_result = None
+        self.described = []
 
     def start(self, *, temporal_workflow_id, definition, input_context, task_queue, meta=None):
         self.calls.append(
@@ -40,6 +43,10 @@ class FakeStarter:
 
     def cancel(self, *, temporal_workflow_id):
         self.cancelled.append(temporal_workflow_id)
+
+    def describe_status(self, *, temporal_workflow_id):
+        self.described.append(temporal_workflow_id)
+        return self.describe_result
 
 
 @pytest.fixture
@@ -104,6 +111,60 @@ def test_different_inputs_start_separate_executions(session, tenant, workflow):
 def test_explicit_unknown_version_raises(session, tenant, workflow):
     with pytest.raises(wf_svc.VersionNotFoundError):
         ex.create_execution(session, tenant.id, workflow.id, FakeStarter(), version=99)
+
+
+def _stale_running(session, tenant, workflow, starter):
+    """A running execution old enough to be eligible for reconciliation."""
+    execution = ex.create_execution(session, tenant.id, workflow.id, starter)
+    execution.started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+    session.flush()
+    return execution
+
+
+def test_reconcile_heals_stale_running_from_temporal(session, tenant, workflow):
+    starter = FakeStarter()
+    execution = _stale_running(session, tenant, workflow, starter)
+    starter.describe_result = "success"  # Temporal says it finished (events were lost)
+
+    ex.reconcile_status(session, execution, starter)
+
+    assert execution.status == "success"
+    assert execution.finished_at is not None
+    assert starter.described == [execution.temporal_workflow_id]
+
+
+def test_reconcile_skips_fresh_running(session, tenant, workflow):
+    # A just-launched run is left alone — its events will arrive normally.
+    starter = FakeStarter()
+    starter.describe_result = "success"
+    execution = ex.create_execution(session, tenant.id, workflow.id, starter)
+
+    ex.reconcile_status(session, execution, starter)
+
+    assert execution.status == "running"
+    assert starter.described == []  # Temporal not consulted for a fresh run
+
+
+def test_reconcile_noop_when_temporal_still_running(session, tenant, workflow):
+    starter = FakeStarter()
+    execution = _stale_running(session, tenant, workflow, starter)
+    starter.describe_result = None  # still running / unknown
+
+    ex.reconcile_status(session, execution, starter)
+
+    assert execution.status == "running"
+
+
+def test_reconcile_ignores_terminal_executions(session, tenant, workflow):
+    starter = FakeStarter()
+    execution = _stale_running(session, tenant, workflow, starter)
+    execution.status = "success"
+    starter.describe_result = "failed"  # must be ignored
+
+    ex.reconcile_status(session, execution, starter)
+
+    assert execution.status == "success"
+    assert starter.described == []
 
 
 def test_workflow_without_active_version_raises(session, tenant):

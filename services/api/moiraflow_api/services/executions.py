@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
@@ -209,6 +209,44 @@ def replay_execution(
 
 
 _TERMINAL = {"success", "failed", "cancelled"}
+_NON_TERMINAL = {"pending", "running"}
+# Live events normally settle a run in well under a second; if one is still
+# non-terminal after this long its events were likely lost, so it's worth asking
+# Temporal directly. The delay keeps healthy in-flight runs off the Temporal path.
+_RECONCILE_AFTER = timedelta(seconds=20)
+
+
+def reconcile_status(
+    session: Session,
+    execution: models.Execution,
+    starter: WorkflowStarter,
+    *,
+    now: datetime | None = None,
+) -> models.Execution:
+    """Heal a stale projection: if an execution is still non-terminal long after it
+    should have settled, ask Temporal (the source of truth) and advance the row to
+    the real terminal status. Best-effort — any failure leaves the row unchanged."""
+    if execution.status not in _NON_TERMINAL:
+        return execution
+    now = now or datetime.now(timezone.utc)
+    reference = execution.started_at or execution.created_at
+    if reference is not None:
+        if reference.tzinfo is None:
+            reference = reference.replace(tzinfo=timezone.utc)
+        if now - reference < _RECONCILE_AFTER:
+            return execution  # too fresh — likely still legitimately running
+    describe = getattr(starter, "describe_status", None)
+    if describe is None:
+        return execution
+    try:
+        temporal_status = describe(temporal_workflow_id=execution.temporal_workflow_id)
+    except Exception:  # pragma: no cover - Temporal unreachable: stay best-effort
+        return execution
+    if temporal_status in _TERMINAL:
+        execution.status = temporal_status
+        execution.finished_at = execution.finished_at or now
+        session.flush()
+    return execution
 
 
 def cancel_execution(

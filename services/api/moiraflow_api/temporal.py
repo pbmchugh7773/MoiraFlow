@@ -18,6 +18,7 @@ from temporalio.client import (
     ScheduleSpec,
     ScheduleUpdate,
     ScheduleUpdateInput,
+    WorkflowExecutionStatus,
 )
 from temporalio.common import WorkflowIDReusePolicy
 from temporalio.exceptions import WorkflowAlreadyStartedError
@@ -25,6 +26,16 @@ from temporalio.exceptions import WorkflowAlreadyStartedError
 from .encryption import data_converter
 
 INTERPRETER_WORKFLOW = "FlowInterpreter"
+
+# Temporal's terminal statuses → MoiraFlow's projection status. RUNNING /
+# CONTINUED_AS_NEW map to nothing (still in flight → leave the row unchanged).
+_STATUS_MAP = {
+    WorkflowExecutionStatus.COMPLETED: "success",
+    WorkflowExecutionStatus.FAILED: "failed",
+    WorkflowExecutionStatus.CANCELED: "cancelled",
+    WorkflowExecutionStatus.TERMINATED: "cancelled",
+    WorkflowExecutionStatus.TIMED_OUT: "failed",
+}
 
 
 class TemporalWorkflowStarter:
@@ -77,6 +88,20 @@ class TemporalWorkflowStarter:
             # instead of failing the launch, so the call stays idempotent.
             description = await client.get_workflow_handle(temporal_workflow_id).describe()
             return description.run_id or ""
+
+    def describe_status(self, *, temporal_workflow_id: str) -> str | None:
+        """Temporal's current status for the run, mapped to a projection status
+        (or None if still running / unknown / absent). Source of truth for
+        reconciling executions whose live events were lost."""
+        return asyncio.run(self._describe_status(temporal_workflow_id))
+
+    async def _describe_status(self, temporal_workflow_id: str) -> str | None:
+        client = await self._connect()
+        try:
+            description = await client.get_workflow_handle(temporal_workflow_id).describe()
+        except Exception:  # pragma: no cover - absent/unreachable -> leave row as-is
+            return None
+        return _STATUS_MAP.get(description.status) if description.status is not None else None
 
     def cancel(self, *, temporal_workflow_id: str) -> None:
         asyncio.run(self._cancel(temporal_workflow_id))

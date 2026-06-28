@@ -109,8 +109,11 @@ def list_executions(
     workflow_id: uuid.UUID | None = None,
     session: Session = Depends(get_session),
     tenant: models.Tenant = Depends(get_current_tenant),
+    starter: WorkflowStarter = Depends(get_workflow_starter),
 ) -> list[ExecutionOut]:
     rows = svc.list_executions(session, tenant.id, workflow_id)
+    # Heal any stale non-terminal rows from Temporal (no-op for healthy/terminal ones).
+    rows = [svc.reconcile_status(session, e, starter) for e in rows]
     return [ExecutionOut.model_validate(e) for e in rows]
 
 
@@ -118,9 +121,11 @@ def list_executions(
 def get_execution(
     execution_id: uuid.UUID,
     session: Session = Depends(get_session),
+    starter: WorkflowStarter = Depends(get_workflow_starter),
     _: models.User = Depends(get_current_user),
 ) -> ExecutionOut:
-    return ExecutionOut.model_validate(svc.get_execution(session, execution_id))
+    execution = svc.reconcile_status(session, svc.get_execution(session, execution_id), starter)
+    return ExecutionOut.model_validate(execution)
 
 
 @router.get("/{execution_id}/events", response_model=list[ExecutionEventOut])
