@@ -105,6 +105,7 @@ def create_execution(
     idempotency_key: str | None = None,
     triggered_by: uuid.UUID | None = None,
     task_queue: str = "moiraflow-server",
+    trigger_source: str = "manual",
 ) -> models.Execution:
     input_context = input_context or {}
     workflow = wf_svc.get_workflow(session, workflow_id)
@@ -137,7 +138,7 @@ def create_execution(
         workflow_version_id=workflow_version.id,
         temporal_workflow_id=temporal_workflow_id,
         temporal_run_id=run_id,
-        trigger_source="manual",
+        trigger_source=trigger_source,
         triggered_by=triggered_by,
         status="running",
         input_context=input_context,

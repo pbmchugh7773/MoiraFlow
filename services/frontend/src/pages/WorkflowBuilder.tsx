@@ -12,6 +12,7 @@ interface JobForm {
   run_on: "server" | "agent";
   needs: string[];
   command: string;
+  artifacts: string; // comma/space-separated file paths
   method: string;
   url: string;
   connection: string;
@@ -25,6 +26,7 @@ const newJob = (n: number): JobForm => ({
   run_on: "server",
   needs: [],
   command: "echo hello",
+  artifacts: "",
   method: "GET",
   url: "https://",
   connection: "secret://pg_main",
@@ -41,7 +43,10 @@ function toYaml(name: string, triggerType: "manual" | "cron", cron: string, tz: 
       const job: Record<string, unknown> = { id: j.id, type: j.type };
       if (j.run_on === "agent") job.run_on = "agent";
       if (j.needs.length) job.needs = j.needs;
-      if (j.type === "command") job.with = { command: j.command };
+      if (j.type === "command") {
+        const arts = j.artifacts.split(/[\s,]+/).filter(Boolean);
+        job.with = { command: j.command, ...(arts.length ? { artifacts: arts } : {}) };
+      }
       else if (j.type === "rest") job.with = { method: j.method, url: j.url };
       else job.with = { connection: j.connection, statement: j.statement };
       const outs = j.outputs.filter((o) => o.key);
@@ -137,7 +142,10 @@ export function WorkflowBuilder({ onCreated }: { onCreated: () => void }) {
               </div>
 
               {j.type === "command" && (
-                <input className="input mono" value={j.command} onChange={(e) => patch(i, { command: e.target.value })} placeholder="shell command" />
+                <div className="stack" style={{ gap: 8 }}>
+                  <input className="input mono" value={j.command} onChange={(e) => patch(i, { command: e.target.value })} placeholder="shell command" />
+                  <input className="input mono" value={j.artifacts} onChange={(e) => patch(i, { artifacts: e.target.value })} placeholder="artifacts (file paths, comma-separated) — optional" />
+                </div>
               )}
               {j.type === "rest" && (
                 <div className="row" style={{ gap: 10 }}>

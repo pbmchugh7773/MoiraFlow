@@ -119,6 +119,7 @@ def _project_job(
     if event["type"] == "job_succeeded":
         job.status = "success"
         job.output = payload.get("outputs", {})
+        job.attempt = int(payload.get("attempt", 1))
         for ref in payload.get("artifacts") or []:
             session.add(
                 models.Artifact(

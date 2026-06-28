@@ -39,6 +39,7 @@ class JobResult:
     outputs: dict[str, Any] = field(default_factory=dict)
     status: str = "success"
     artifacts: list[dict[str, Any]] = field(default_factory=list)
+    attempt: int = 1  # Temporal attempt the job succeeded on (1 = first try)
 
 
 RunJob = Callable[[JobRequest], Awaitable[JobResult]]
@@ -127,7 +128,11 @@ async def _execute(
         {
             "type": "job_succeeded",
             "job_id": request.job_id,
-            "payload": {"outputs": result.outputs, "artifacts": result.artifacts},
+            "payload": {
+                "outputs": result.outputs,
+                "artifacts": result.artifacts,
+                "attempt": result.attempt,
+            },
         }
     )
     return result

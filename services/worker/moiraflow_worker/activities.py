@@ -36,6 +36,15 @@ def publish_event(event: dict[str, Any]) -> None:
         activity.logger.warning("event publish failed", exc_info=True)
 
 
+def _attempt() -> int:
+    """Temporal attempt number for the running activity (1 = first try). Returns 1
+    outside an activity context (e.g. direct unit-test calls)."""
+    try:
+        return activity.info().attempt
+    except RuntimeError:
+        return 1
+
+
 @activity.defn(name="run_command_job")
 def run_command_job(request: JobRequest) -> JobResult:
     inputs = request.inputs
@@ -71,7 +80,10 @@ def run_command_job(request: JobRequest) -> JobResult:
             except Exception:  # pragma: no cover - best effort; depends on MinIO
                 activity.logger.warning("artifact upload failed", exc_info=True)
         return JobResult(
-            job_id=request.job_id, outputs=dict(request.outputs_spec), artifacts=artifacts
+            job_id=request.job_id,
+            outputs=dict(request.outputs_spec),
+            artifacts=artifacts,
+            attempt=_attempt(),
         )
     finally:
         if explicit_wd is None:
@@ -102,7 +114,7 @@ async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> int
 async def run_rest_job(request: JobRequest) -> JobResult:
     async with httpx.AsyncClient() as client:
         await execute_rest(request.inputs, client)
-    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec))
+    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec), attempt=_attempt())
 
 
 @activity.defn(name="run_sql_job")
@@ -123,7 +135,7 @@ def run_sql_job(request: JobRequest) -> JobResult:
         raise RuntimeError(f"sql job failed: {redact(str(exc))}") from None
     finally:
         engine.dispose()
-    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec))
+    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec), attempt=_attempt())
 
 
 # Activities registered on the server-side worker (and the local "agent" worker).

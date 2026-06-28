@@ -43,6 +43,30 @@ def test_login_returns_token_and_me_works(client, factory):
     assert me.json()["role"] == "developer"
 
 
+def test_refresh_issues_new_token_and_logout(client, factory):
+    seed_user(factory, role="developer")
+    token = client.post(
+        "/api/v1/auth/login", json={"email": "developer@x.io", "password": "pw"}
+    ).json()["access_token"]
+    h = {"Authorization": f"Bearer {token}"}
+
+    refreshed = client.post("/api/v1/auth/refresh", headers=h)
+    assert refreshed.status_code == 200
+    new_token = refreshed.json()["access_token"]
+    # the new token authenticates
+    assert (
+        client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {new_token}"}).status_code
+        == 200
+    )
+    # logout is a 204 (client discards the token)
+    assert client.post("/api/v1/auth/logout", headers=h).status_code == 204
+
+
+def test_refresh_requires_auth(client, factory):
+    seed_user(factory)
+    assert client.post("/api/v1/auth/refresh").status_code == 401
+
+
 def test_login_wrong_password_401(client, factory):
     seed_user(factory, role="developer")
     resp = client.post("/api/v1/auth/login", json={"email": "developer@x.io", "password": "nope"})

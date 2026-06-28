@@ -20,7 +20,7 @@ from .errors import register_error_handlers
 from .live import run_event_subscriber
 from .observability import add_metrics_middleware
 from .observability import router as system_router
-from .routers import agents, audit, auth, catalog, executions, secrets, users, workflows
+from .routers import agents, audit, auth, catalog, executions, hooks, secrets, users, workflows
 
 API_PREFIX = "/api/v1"
 
@@ -57,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(workflows.router, prefix=API_PREFIX)
     app.include_router(executions.router, prefix=API_PREFIX)
+    app.include_router(hooks.router, prefix=API_PREFIX)
     app.include_router(secrets.router, prefix=API_PREFIX)
     app.include_router(users.router, prefix=API_PREFIX)
     app.include_router(agents.router, prefix=API_PREFIX)

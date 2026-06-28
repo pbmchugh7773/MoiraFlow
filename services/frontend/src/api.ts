@@ -15,7 +15,8 @@ export interface WorkflowVersion {
 }
 export interface Execution {
   id: string; workflow_id: string; workflow_version_id: string; temporal_workflow_id: string;
-  temporal_run_id: string | null; status: Status; input_context: Record<string, unknown>; created_at: string;
+  temporal_run_id: string | null; status: Status; trigger_source: string;
+  input_context: Record<string, unknown>; created_at: string;
 }
 export interface ExecutionEvent {
   id: number; event_type: string; payload: Record<string, unknown>;
@@ -73,6 +74,9 @@ export const api = {
       method: "POST", body: JSON.stringify({ email, password }),
     }),
   me: () => request<User>("/auth/me"),
+  refreshToken: () =>
+    request<{ access_token: string; expires_in: number }>("/auth/refresh", { method: "POST" }),
+  logout: () => request<void>("/auth/logout", { method: "POST" }),
 
   listWorkflows: () => request<Workflow[]>("/workflows"),
   getWorkflow: (id: string) => request<Workflow>(`/workflows/${id}`),

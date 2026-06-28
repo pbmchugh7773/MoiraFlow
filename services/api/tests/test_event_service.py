@@ -146,6 +146,13 @@ def test_job_executions_projected_from_events(session, execution):
     assert by_id["a"].finished_at is not None
 
 
+def test_job_records_succeeding_attempt(session, execution):
+    svc.handle_event(session, _job_ev("job_started", "r", {"type": "rest"}))
+    svc.handle_event(session, _job_ev("job_succeeded", "r", {"outputs": {}, "attempt": 3}))
+    job = svc.list_job_executions(session, execution.id)[0]
+    assert job.attempt == 3  # succeeded on the 3rd try
+
+
 def test_artifacts_persisted_from_job_succeeded(session, execution):
     svc.handle_event(session, _job_ev("job_started", "a", {"type": "command"}))
     svc.handle_event(

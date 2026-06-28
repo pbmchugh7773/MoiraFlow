@@ -24,6 +24,7 @@ class ExecutionOut(BaseModel):
     temporal_workflow_id: str
     temporal_run_id: str | None
     status: str
+    trigger_source: str
     input_context: dict[str, Any]
     created_at: datetime
 

@@ -26,7 +26,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token.set(access_token);
     setUser(await api.me());
   };
-  const logout = () => { token.clear(); setUser(null); };
+  const logout = () => {
+    api.logout().catch(() => {}); // best-effort server sign-out (audit hook)
+    token.clear();
+    setUser(null);
+  };
 
   return <Ctx.Provider value={{ user, ready, login, logout }}>{children}</Ctx.Provider>;
 }

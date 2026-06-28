@@ -7,6 +7,7 @@ saved definition becomes an immutable, content-hashed `workflow_versions` row
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime, timezone
 
@@ -110,12 +111,18 @@ def create_workflow(
     if existing is not None:
         raise WorkflowExistsError(name)
 
+    trigger_config = definition.spec.trigger.model_dump(exclude_none=True, exclude={"type"})
+    if definition.spec.trigger.type == "webhook":
+        # A server-issued secret so the hook URL is unguessable. Kept on the workflow
+        # row (not the content-hashed definition), so export/hash are unaffected.
+        trigger_config["webhook_token"] = secrets.token_urlsafe(24)
+
     workflow = models.Workflow(
         tenant_id=tenant_id,
         name=name,
         description=definition.metadata.description,
         trigger_type=definition.spec.trigger.type,
-        trigger_config=definition.spec.trigger.model_dump(exclude_none=True, exclude={"type"}),
+        trigger_config=trigger_config,
         created_by=created_by,
     )
     session.add(workflow)
