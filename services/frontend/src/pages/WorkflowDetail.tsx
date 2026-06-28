@@ -117,7 +117,7 @@ export function WorkflowDetail() {
         <span className="pill mono">{id.slice(0, 8)}</span>
       </div>
 
-      {jobs.length > 0 && (
+      {jobs.length > 0 && !editing && (
         <div style={{ marginBottom: 28 }}>
           <h3 className="display" style={{ fontSize: 18, marginBottom: 12 }}>Shape</h3>
           <DagView jobs={jobs} />
