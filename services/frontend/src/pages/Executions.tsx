@@ -11,7 +11,7 @@ export function Executions() {
   useEffect(() => {
     const load = () => api.listExecutions().then(setItems).catch(() => setItems([]));
     load();
-    const t = setInterval(load, 4000); // light polling for the list view
+    const t = setInterval(load, 1500); // light polling for the list view
     return () => clearInterval(t);
   }, []);
 
