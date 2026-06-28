@@ -129,6 +129,7 @@ export function ExecutionDetail() {
           <div className="logbox">
             {logs.map((e, i) => (
               <div key={i} className="logline">
+                <span className="logts">{fmtTime(e.payload.ts)}</span>
                 {e.job_id && <span className="logjob">{e.job_id}</span>}
                 <span>{String(e.payload.line ?? "")}</span>
               </div>
@@ -162,6 +163,14 @@ export function ExecutionDetail() {
       <Link to="/executions" className="dim" style={{ fontSize: 13, display: "inline-block", marginTop: 20 }}>← All executions</Link>
     </div>
   );
+}
+
+function fmtTime(ts: unknown): string {
+  if (typeof ts !== "string") return "";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString(undefined, { hour12: false }) +
+    "." + String(d.getMilliseconds()).padStart(3, "0");
 }
 
 function summary(e: Item): string | null {

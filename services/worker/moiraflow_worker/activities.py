@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import uuid
 from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -71,7 +72,9 @@ def _emit_log(job_id: str, workflow_id: str | None, line: str) -> None:
                 "type": "job_log",
                 "job_id": job_id,
                 "temporal_workflow_id": workflow_id,
-                "payload": {"line": line},
+                # Stamp when the line was produced (activities run outside the
+                # deterministic workflow sandbox, so wall-clock time is fine here).
+                "payload": {"line": line, "ts": datetime.now(timezone.utc).isoformat()},
             },
         )
     except Exception:  # pragma: no cover - depends on Redis availability
