@@ -340,6 +340,11 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
     [setEdges],
   );
 
+  const removeEdge = useCallback(
+    (id: string) => setEdges((es) => es.filter((e) => e.id !== id)),
+    [setEdges],
+  );
+
   const onSelectionChange = useCallback((p: OnSelectionChangeParams) => {
     setSelectedId(p.nodes.length === 1 ? p.nodes[0].id : null);
   }, []);
@@ -441,7 +446,9 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
                 onSelectionChange={onSelectionChange}
                 onNodeClick={(_, n) => setSelectedId(n.id)}
                 onPaneClick={() => setSelectedId(null)}
+                onEdgeDoubleClick={(_, e) => removeEdge(e.id)}
                 defaultEdgeOptions={EDGE_OPTIONS}
+                deleteKeyCode={["Delete", "Backspace"]}
                 fitView
                 proOptions={{ hideAttribution: true }}
               >
@@ -449,7 +456,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
               </ReactFlow>
             </div>
             <div className="faint" style={{ fontSize: 11.5 }}>
-              Drag node edges to connect (creates <span className="mono">needs</span>). Click a node to edit its properties. Double-click a palette chip to add at center.
+              Drag node handles to connect (creates <span className="mono">needs</span>). Double-click a connector — or select it and press <span className="mono">Delete</span> — to remove it. Click a node to edit its properties.
             </div>
           </div>
 
