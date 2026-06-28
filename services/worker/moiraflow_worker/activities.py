@@ -9,6 +9,7 @@ is orthogonal to this execution contract.
 
 from __future__ import annotations
 
+import collections
 import os
 import shutil
 import subprocess
@@ -45,6 +46,72 @@ def _attempt() -> int:
         return 1
 
 
+def _workflow_id() -> str | None:
+    """The running activity's Temporal workflow id (None outside an activity, e.g.
+    direct unit-test calls) — used to route streamed log lines to the execution."""
+    try:
+        return activity.info().workflow_id
+    except RuntimeError:
+        return None
+
+
+# Cap streamed lines so a chatty command can't flood Redis/Postgres with events.
+_MAX_LOG_LINES = 2000
+
+
+def _emit_log(job_id: str, workflow_id: str | None, line: str) -> None:
+    """Publish one redacted log line to Redis (best-effort; never fails the job)."""
+    if not workflow_id:
+        return
+    try:
+        publish_to_redis(
+            get_redis(),
+            {
+                "type": "job_log",
+                "job_id": job_id,
+                "temporal_workflow_id": workflow_id,
+                "payload": {"line": line},
+            },
+        )
+    except Exception:  # pragma: no cover - depends on Redis availability
+        activity.logger.warning("log publish failed", exc_info=True)
+
+
+def _stream_command(
+    command: str,
+    env: dict[str, str] | None,
+    workdir: str | None,
+    emit_line: Callable[[str], None],
+) -> tuple[int, list[str]]:
+    """Run a shell command, streaming each redacted output line to `emit_line` as it
+    is produced. stderr is merged into stdout so ordering is preserved and no pipe
+    deadlocks. Returns ``(returncode, tail)`` where tail is the last few lines (used
+    to build the error message). Resource limits are applied to the child."""
+    proc = subprocess.Popen(
+        command,
+        shell=True,  # a `command` job runs a shell command by definition
+        cwd=workdir,
+        env=env,
+        preexec_fn=apply_limits,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    tail: collections.deque[str] = collections.deque(maxlen=20)
+    emitted = 0
+    assert proc.stdout is not None
+    for raw in proc.stdout:
+        line = redact(raw.rstrip("\n"))
+        tail.append(line)
+        if emitted < _MAX_LOG_LINES:
+            emit_line(line)
+            emitted += 1
+            if emitted == _MAX_LOG_LINES:
+                emit_line(f"... [log truncated at {_MAX_LOG_LINES} lines]")
+    return proc.wait(), list(tail)
+
+
 @activity.defn(name="run_command_job")
 def run_command_job(request: JobRequest) -> JobResult:
     inputs = request.inputs
@@ -54,21 +121,14 @@ def run_command_job(request: JobRequest) -> JobResult:
     # Run in an ephemeral working dir (cleaned up after) unless one is pinned, with
     # CPU/memory/file-size limits applied to the child (docs 05 §4.4).
     workdir = explicit_wd or tempfile.mkdtemp(prefix="moiraflow-cmd-")
+    workflow_id = _workflow_id()
     try:
-        completed = subprocess.run(
-            command,
-            shell=True,  # a `command` job runs a shell command by definition
-            capture_output=True,
-            text=True,
-            cwd=workdir,
-            env=env,
-            preexec_fn=apply_limits,
+        returncode, tail = _stream_command(
+            command, env, workdir, lambda line: _emit_log(request.job_id, workflow_id, line)
         )
-        if completed.returncode != 0:
+        if returncode != 0:
             # Raising lets Temporal apply the job's RetryPolicy.
-            raise RuntimeError(
-                f"command exited {completed.returncode}: {completed.stderr.strip()[:500]}"
-            )
+            raise RuntimeError(f"command exited {returncode}: {' | '.join(tail)[:500]}")
         # Upload declared artifacts (relative paths resolve against the workdir).
         artifacts: list[dict[str, Any]] = []
         declared = inputs.get("artifacts") or []

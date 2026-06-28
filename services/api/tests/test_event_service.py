@@ -146,6 +146,20 @@ def test_job_executions_projected_from_events(session, execution):
     assert by_id["a"].finished_at is not None
 
 
+def test_job_log_is_stored_but_does_not_touch_job_row(session, execution):
+    # a running job, then two log lines, must NOT finish/alter the job_executions row
+    svc.handle_event(session, _job_ev("job_started", "a", {"type": "command"}))
+    svc.handle_event(session, _job_ev("job_log", "a", {"line": "building..."}))
+    svc.handle_event(session, _job_ev("job_log", "a", {"line": "done"}))
+
+    job = svc.list_job_executions(session, execution.id)[0]
+    assert job.status == "running"  # unchanged by the logs
+    assert job.finished_at is None
+    # logs are still persisted as execution_events for replay
+    logs = [e for e in svc.list_events(session, execution.id) if e.event_type == "job_log"]
+    assert [e.payload["line"] for e in logs] == ["building...", "done"]
+
+
 def test_job_skipped_projected_as_skipped_row(session, execution):
     # A skipped job has no started/succeeded lifecycle — just a single skipped event.
     svc.handle_event(session, _job_ev("job_skipped", "b", {"reason": "condition_false"}))

@@ -95,6 +95,10 @@ def _project_job(
     job_id = event.get("job_id")
     if not job_id or not event["type"].startswith("job_"):
         return
+    # Non-lifecycle job events (e.g. job_log) are stored as execution_events but must
+    # not mutate the job_executions row.
+    if event["type"] not in {"job_started", "job_skipped", "job_succeeded", "job_failed"}:
+        return
     if event["type"] == "job_started":
         session.add(
             models.JobExecution(

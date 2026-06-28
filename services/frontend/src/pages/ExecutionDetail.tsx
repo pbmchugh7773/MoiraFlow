@@ -24,6 +24,7 @@ export function ExecutionDetail() {
   const [status, setStatus] = useState<string>("pending");
   const [live, setLive] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -59,9 +60,14 @@ export function ExecutionDetail() {
       if (e.type === "job_started") m[e.job_id] = "running";
       else if (e.type === "job_succeeded") m[e.job_id] = "success";
       else if (e.type === "job_failed") m[e.job_id] = "failed";
+      else if (e.type === "job_skipped") m[e.job_id] = "skipped";
     }
     return m;
   }, [events]);
+
+  const logs = useMemo(() => events.filter((e) => e.type === "job_log"), [events]);
+  const timeline = useMemo(() => events.filter((e) => e.type !== "job_log"), [events]);
+  useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs.length]);
 
   return (
     <div>
@@ -116,12 +122,27 @@ export function ExecutionDetail() {
         </div>
       )}
 
+      {logs.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <h3 className="display" style={{ fontSize: 18, marginBottom: 14 }}>Logs</h3>
+          <div className="logbox">
+            {logs.map((e, i) => (
+              <div key={i} className="logline">
+                {e.job_id && <span className="logjob">{e.job_id}</span>}
+                <span>{String(e.payload.line ?? "")}</span>
+              </div>
+            ))}
+            <div ref={logEndRef} />
+          </div>
+        </div>
+      )}
+
       <h3 className="display" style={{ fontSize: 18, marginBottom: 14 }}>Event stream</h3>
       <div className="panel" style={{ padding: "20px 24px" }}>
-        {events.length === 0 ? <div className="empty">Waiting for the first thread…</div> : (
+        {timeline.length === 0 ? <div className="empty">Waiting for the first thread…</div> : (
           <div className="timeline">
             <AnimatePresence initial={false}>
-              {events.map((e, i) => (
+              {timeline.map((e, i) => (
                 <motion.div key={i} className="tl-item"
                   initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
                   <div className="row" style={{ gap: 10 }}>

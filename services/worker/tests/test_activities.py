@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from moiraflow_worker.activities import execute_rest, run_command_job
+from moiraflow_worker.activities import _stream_command, execute_rest, run_command_job
 from moiraflow_worker.interpreter import JobRequest
 
 
@@ -75,3 +75,25 @@ def test_run_command_job_raises_on_failure():
     req = JobRequest(job_id="a", type="command", inputs={"command": "exit 3"})
     with pytest.raises(RuntimeError):
         run_command_job(req)
+
+
+def test_stream_command_emits_each_line_in_order():
+    lines: list[str] = []
+    rc, tail = _stream_command("printf 'one\\ntwo\\nthree\\n'", None, None, lines.append)
+    assert rc == 0
+    assert lines == ["one", "two", "three"]
+    assert tail[-1] == "three"  # tail used to build error messages
+
+
+def test_stream_command_redacts_secrets_in_lines():
+    lines: list[str] = []
+    _stream_command("echo postgres://user:hunter2@db/app", None, None, lines.append)
+    assert "hunter2" not in lines[0]
+    assert "***" in lines[0]
+
+
+def test_stream_command_returns_nonzero_returncode_and_tail():
+    lines: list[str] = []
+    rc, tail = _stream_command("echo boom; exit 7", None, None, lines.append)
+    assert rc == 7
+    assert "boom" in tail[-1]
