@@ -73,3 +73,68 @@ def render_job_inputs(value: Any, scope: RenderScope) -> Any:
     if isinstance(value, list):
         return [render_job_inputs(v, scope) for v in value]
     return value
+
+
+# ── conditions (job `condition`) ─────────────────────────────────────────────
+# Pure/deterministic, same reference surface as render_template. No eval(): only
+# template lookups plus a single optional comparison, so it stays replay-safe.
+
+_FALSY = {"", "false", "0", "no", "off", "none", "null"}
+# Longest operators first so ">=" is matched before ">" (and "!=" before "=").
+_COMPARATORS = ("==", "!=", ">=", "<=", ">", "<")
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if value is None:
+        return False
+    return str(value).strip().lower() not in _FALSY
+
+
+def _operand(text: str, scope: RenderScope) -> Any:
+    """Resolve one side of a comparison: a template expression keeps its type, a
+    bare token is a literal string."""
+    text = text.strip()
+    return render_template(text, scope) if "{{" in text else text
+
+
+def _equal(lhs: Any, rhs: Any) -> bool:
+    if isinstance(lhs, bool) or isinstance(rhs, bool):
+        return _truthy(lhs) == _truthy(rhs)
+    return str(lhs).strip() == str(rhs).strip()
+
+
+def _apply(op: str, lhs: Any, rhs: Any) -> bool:
+    if op == "==":
+        return _equal(lhs, rhs)
+    if op == "!=":
+        return not _equal(lhs, rhs)
+    try:
+        left: Any = float(str(lhs).strip())
+        right: Any = float(str(rhs).strip())
+    except ValueError:  # non-numeric ordering falls back to lexical comparison
+        left, right = str(lhs).strip(), str(rhs).strip()
+    return bool(
+        {">": left > right, "<": left < right, ">=": left >= right, "<=": left <= right}[op]
+    )
+
+
+def evaluate_condition(condition: str, scope: RenderScope) -> bool:
+    """Evaluate a job `condition` to a bool.
+
+    Forms: a single template expression (truthy if it resolves to a non-empty,
+    non-"false"/"0" value) or a binary comparison ``<lhs> <op> <rhs>`` with op in
+    ``== != >= <= > <``. Operands may be template expressions or bare literals.
+    Template expressions contain no operators (only dotted paths), so a plain scan
+    for the comparator is unambiguous.
+    """
+    for op in _COMPARATORS:
+        idx = condition.find(op)
+        if idx != -1:
+            lhs = _operand(condition[:idx], scope)
+            rhs = _operand(condition[idx + len(op) :], scope)
+            return _apply(op, lhs, rhs)
+    return _truthy(_operand(condition, scope))

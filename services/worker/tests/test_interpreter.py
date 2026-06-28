@@ -88,6 +88,95 @@ def test_dependency_order_is_respected():
     assert order == ["a", "b", "c"]
 
 
+def test_declared_context_defaults_are_applied():
+    # spec.context provides a default; launching with no input still resolves it.
+    calls = []
+    defn = _defn(
+        [{"id": "a", "type": "command", "with": {"command": "echo {{ context.greeting }}"}}],
+        context={"greeting": "hi"},
+    )
+    asyncio.run(run_dag(defn, {}, _record_run(calls)))
+    assert calls[0].inputs == {"command": "echo hi"}
+
+
+def test_input_context_overrides_declared_default():
+    calls = []
+    defn = _defn(
+        [{"id": "a", "type": "command", "with": {"command": "echo {{ context.greeting }}"}}],
+        context={"greeting": "hi"},
+    )
+    result = asyncio.run(run_dag(defn, {"greeting": "hola"}, _record_run(calls)))
+    assert calls[0].inputs == {"command": "echo hola"}
+    assert result["context"]["greeting"] == "hola"
+
+
+def test_job_skipped_when_condition_false():
+    calls = []
+    defn = _defn(
+        [
+            {"id": "a", "type": "command", "with": {"command": "x"}},
+            {
+                "id": "b",
+                "type": "command",
+                "with": {"command": "x"},
+                "condition": "{{ context.run_b }}",
+            },
+        ],
+    )
+    result = asyncio.run(run_dag(defn, {"run_b": False}, _record_run(calls)))
+    assert [c.job_id for c in calls] == ["a"]  # b never dispatched
+    assert "b" not in result["jobs"]
+
+
+def test_skip_cascades_to_downstream_jobs():
+    calls = []
+    defn = _defn(
+        [
+            {
+                "id": "a",
+                "type": "command",
+                "with": {"command": "x"},
+                "condition": "{{ context.go }}",
+            },
+            {"id": "b", "type": "command", "needs": ["a"], "with": {"command": "x"}},
+        ],
+    )
+    asyncio.run(run_dag(defn, {"go": False}, _record_run(calls)))
+    assert calls == []  # a skipped by condition, b cascade-skipped
+
+
+def test_job_runs_when_condition_true():
+    calls = []
+    defn = _defn(
+        [
+            {
+                "id": "a",
+                "type": "command",
+                "with": {"command": "x"},
+                "condition": "{{ context.go }}",
+            },
+        ],
+    )
+    asyncio.run(run_dag(defn, {"go": True}, _record_run(calls)))
+    assert [c.job_id for c in calls] == ["a"]
+
+
+def test_skipped_job_emits_event():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    defn = _defn(
+        [{"id": "a", "type": "command", "with": {"command": "x"}, "condition": "false"}],
+    )
+    asyncio.run(run_dag(defn, {}, _record_run([]), emit=emit))
+    skipped = [e for e in events if e["type"] == "job_skipped"]
+    assert len(skipped) == 1
+    assert skipped[0]["job_id"] == "a"
+    assert skipped[0]["payload"]["reason"] == "condition_false"
+
+
 def test_parallel_branches_run_in_same_batch():
     started = []
     release = asyncio.Event()

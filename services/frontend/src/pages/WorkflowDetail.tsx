@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, token, type Execution, type JobDef, type Workflow, type WorkflowDefinition, type WorkflowVersion } from "../api";
@@ -35,10 +36,12 @@ export function WorkflowDetail() {
   };
   useEffect(reload, [id]);
 
-  const launch = async () => {
+  const [launching, setLaunching] = useState(false);
+
+  const doLaunch = async (inputContext: Record<string, unknown>) => {
     setErr(null);
     try {
-      const ex = await api.launch(id);
+      const ex = await api.launch(id, Object.keys(inputContext).length ? inputContext : undefined);
       nav(`/executions/${ex.id}`);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : "Launch failed");
@@ -83,7 +86,9 @@ export function WorkflowDetail() {
             }}>Delete</button>
           )}
           {canLaunch(user?.role) && (
-            <button className="btn btn-gold" onClick={launch} disabled={!wf.active_version_id}>Launch</button>
+            <button className="btn btn-gold" onClick={() => setLaunching((v) => !v)} disabled={!wf.active_version_id}>
+              {launching ? "Cancel" : "Launch"}
+            </button>
           )}
         </div>
       </div>
@@ -96,6 +101,14 @@ export function WorkflowDetail() {
             onSaved={() => { setEditing(false); reload(); }}
           />
         </div>
+      )}
+
+      {launching && (
+        <LaunchPanel
+          declared={(definition?.spec.context as Record<string, unknown>) ?? {}}
+          onRun={doLaunch}
+          onCancel={() => setLaunching(false)}
+        />
       )}
 
       <div className="row" style={{ gap: 10, marginBottom: 24 }}>
@@ -152,6 +165,65 @@ export function WorkflowDetail() {
 
       <Link to="/workflows" className="dim" style={{ fontSize: 13 }}>← All workflows</Link>
     </div>
+  );
+}
+
+/** Collect launch inputs. Pre-fills the workflow's declared `spec.context`
+ *  defaults; each value is parsed as JSON when possible, else kept as a string. */
+function LaunchPanel({ declared, onRun, onCancel }: {
+  declared: Record<string, unknown>;
+  onRun: (input: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const initial = Object.entries(declared).map(([key, value]) => ({
+    key,
+    value: typeof value === "string" ? value : JSON.stringify(value),
+  }));
+  const [rows, setRows] = useState<{ key: string; value: string }[]>(
+    initial.length ? initial : [{ key: "", value: "" }],
+  );
+  const set = (i: number, p: Partial<{ key: string; value: string }>) =>
+    setRows((rs) => rs.map((r, k) => (k === i ? { ...r, ...p } : r)));
+
+  const parse = (s: string): unknown => {
+    try { return JSON.parse(s); } catch { return s; }
+  };
+  const run = () => {
+    const input: Record<string, unknown> = {};
+    for (const r of rows) if (r.key.trim()) input[r.key.trim()] = parse(r.value);
+    onRun(input);
+  };
+
+  return (
+    <motion.div className="panel" style={{ padding: 18, marginBottom: 24 }}
+      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="row between" style={{ marginBottom: 12 }}>
+        <h3 className="display" style={{ fontSize: 17, margin: 0 }}>Launch with inputs</h3>
+        <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 12 }}
+          onClick={() => setRows((rs) => [...rs, { key: "", value: "" }])}>+ Add input</button>
+      </div>
+      <p className="faint" style={{ fontSize: 12, marginTop: 0, marginBottom: 12 }}>
+        {Object.keys(declared).length
+          ? "Declared context — override values for this run. Plain text or JSON (numbers, true/false, objects)."
+          : "This workflow declares no inputs. Add ad-hoc context keys, or just run it."}
+      </p>
+      <div className="stack" style={{ gap: 8 }}>
+        {rows.map((r, i) => (
+          <div key={i} className="row" style={{ gap: 8 }}>
+            <input className="input mono" style={{ maxWidth: 200 }} value={r.key} placeholder="key"
+              onChange={(e) => set(i, { key: e.target.value })} />
+            <input className="input mono grow" value={r.value} placeholder="value (text or JSON)"
+              onChange={(e) => set(i, { value: e.target.value })} />
+            <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 12, color: "var(--fail)" }}
+              onClick={() => setRows((rs) => rs.filter((_, k) => k !== i))}>×</button>
+          </div>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 10, marginTop: 16 }}>
+        <button className="btn btn-gold" onClick={run}>Run</button>
+        <button className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </motion.div>
   );
 }
 

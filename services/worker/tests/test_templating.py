@@ -3,6 +3,7 @@ import pytest
 from moiraflow_worker.templating import (
     RenderScope,
     TemplateError,
+    evaluate_condition,
     render_job_inputs,
     render_template,
 )
@@ -42,6 +43,33 @@ def test_value_without_template_is_unchanged():
     # secret:// values carry no braces and must pass through untouched (late resolution).
     scope = _scope()
     assert render_template("secret://pg_main", scope) == "secret://pg_main"
+
+
+@pytest.mark.parametrize(
+    "condition, context, expected",
+    [
+        ("{{ context.enabled }}", {"enabled": True}, True),
+        ("{{ context.enabled }}", {"enabled": False}, False),
+        ("{{ context.flag }}", {"flag": "false"}, False),  # falsy string
+        ("{{ context.flag }}", {"flag": "yes"}, True),
+        ("{{ context.n }}", {"n": 0}, False),  # zero is falsy
+        ("{{ context.n }}", {"n": 3}, True),
+        ("{{ context.env }} == prod", {"env": "prod"}, True),
+        ("{{ context.env }} == prod", {"env": "dev"}, False),
+        ("{{ context.env }} != prod", {"env": "dev"}, True),
+        ("{{ context.count }} > 0", {"count": 5}, True),
+        ("{{ context.count }} > 10", {"count": 5}, False),
+        ("{{ context.count }} >= 5", {"count": 5}, True),
+        ("{{ context.count }} <= 4", {"count": 5}, False),
+    ],
+)
+def test_evaluate_condition(condition, context, expected):
+    assert evaluate_condition(condition, _scope(context=context)) is expected
+
+
+def test_evaluate_condition_reads_job_outputs():
+    scope = _scope(outputs={"check": {"status": "ok"}})
+    assert evaluate_condition("{{ jobs.check.outputs.status }} == ok", scope) is True
 
 
 def test_render_job_inputs_recurses_dict_and_list():

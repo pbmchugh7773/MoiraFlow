@@ -245,3 +245,6 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .flow-handle { width: 9px; height: 9px; background: var(--gold); border: 1.5px solid var(--ink); }
 
 @media (max-width: 1100px) { .builder-grid { grid-template-columns: 1fr; } }
+
+.builder-inputs { border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--ink-2); padding: 12px 14px; margin-bottom: 16px; }

@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 from .scheduling import ready_jobs
-from .templating import RenderScope, render_job_inputs
+from .templating import RenderScope, evaluate_condition, render_job_inputs
 
 
 @dataclass
@@ -72,8 +72,12 @@ async def run_dag(
     """
     emit = emit or _noop_emit
     jobs: list[dict[str, Any]] = definition["spec"]["jobs"]
+    # Effective context = workflow-declared defaults overlaid with launch inputs
+    # (override wins). The merged map is read-only for the whole run (ADR-0013).
+    context = {**definition["spec"].get("context", {}), **input_context}
     outputs_by_job: dict[str, dict[str, Any]] = {}
     completed: set[str] = set()
+    skipped: set[str] = set()
 
     await emit(
         {
@@ -83,13 +87,25 @@ async def run_dag(
         }
     )
     try:
-        while len(completed) < len(jobs):
-            scope = RenderScope(context=input_context, outputs=outputs_by_job)
-            batch = ready_jobs(jobs, completed=completed, running=set())
+        while len(completed) + len(skipped) < len(jobs):
+            done = completed | skipped
+            scope = RenderScope(context=context, outputs=outputs_by_job)
+            batch = ready_jobs(jobs, completed=done, running=set())
             if not batch:  # pragma: no cover - a validated DAG always makes progress
                 raise RuntimeError("no runnable jobs but workflow is incomplete (cyclic?)")
 
-            results = await asyncio.gather(*(_execute(job, scope, run_job, emit) for job in batch))
+            to_run = []
+            for job in batch:
+                reason = _skip_reason(job, skipped, scope)
+                if reason is not None:
+                    skipped.add(job["id"])
+                    await emit(
+                        {"type": "job_skipped", "job_id": job["id"], "payload": {"reason": reason}}
+                    )
+                else:
+                    to_run.append(job)
+
+            results = await asyncio.gather(*(_execute(job, scope, run_job, emit) for job in to_run))
             for result in results:
                 outputs_by_job[result.job_id] = result.outputs
                 completed.add(result.job_id)
@@ -99,9 +115,20 @@ async def run_dag(
 
     await emit({"type": "execution_finished", "job_id": None, "payload": {"status": "success"}})
     return {
-        "context": input_context,
+        "context": context,
         "jobs": {job_id: {"outputs": outs} for job_id, outs in outputs_by_job.items()},
     }
+
+
+def _skip_reason(job: dict[str, Any], skipped: set[str], scope: RenderScope) -> str | None:
+    """Why this ready job should be skipped, or None to run it. A job is skipped
+    when an upstream dependency was skipped (cascade) or its `condition` is false."""
+    if any(dep in skipped for dep in job.get("needs", [])):
+        return "upstream_skipped"
+    condition = job.get("condition")
+    if condition and not evaluate_condition(condition, scope):
+        return "condition_false"
+    return None
 
 
 async def _execute(

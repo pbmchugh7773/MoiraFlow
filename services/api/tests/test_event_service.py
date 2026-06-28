@@ -146,6 +146,16 @@ def test_job_executions_projected_from_events(session, execution):
     assert by_id["a"].finished_at is not None
 
 
+def test_job_skipped_projected_as_skipped_row(session, execution):
+    # A skipped job has no started/succeeded lifecycle — just a single skipped event.
+    svc.handle_event(session, _job_ev("job_skipped", "b", {"reason": "condition_false"}))
+    jobs = svc.list_job_executions(session, execution.id)
+    assert len(jobs) == 1
+    assert jobs[0].job_id == "b"
+    assert jobs[0].status == "skipped"
+    assert jobs[0].finished_at is not None
+
+
 def test_job_records_succeeding_attempt(session, execution):
     svc.handle_event(session, _job_ev("job_started", "r", {"type": "rest"}))
     svc.handle_event(session, _job_ev("job_succeeded", "r", {"outputs": {}, "attempt": 3}))

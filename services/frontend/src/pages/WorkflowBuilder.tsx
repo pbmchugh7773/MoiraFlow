@@ -50,6 +50,7 @@ interface JobData extends Record<string, unknown> {
   outputs: KV[];
   timeout: string; // e.g. "30s"
   retries: number; // max_attempts
+  condition: string; // run only if truthy, e.g. "{{ context.go }} == yes"
 }
 
 type JobNode = Node<JobData>;
@@ -76,6 +77,7 @@ function blankData(jobId: string, type: JobType): JobData {
     outputs: [],
     timeout: "",
     retries: 1,
+    condition: "",
   };
 }
 
@@ -83,7 +85,20 @@ function blankData(jobId: string, type: JobType): JobData {
 const kvToObj = (kv: KV[]): Record<string, string> =>
   Object.fromEntries(kv.filter((p) => p.key.trim()).map((p) => [p.key.trim(), p.value]));
 const objToKv = (o: Record<string, unknown> | undefined): KV[] =>
-  Object.entries(o ?? {}).map(([key, value]) => ({ key, value: String(value) }));
+  Object.entries(o ?? {}).map(([key, value]) => ({
+    key,
+    value: typeof value === "string" ? value : JSON.stringify(value),
+  }));
+// Context values are typed: parse each as JSON (numbers/bools/objects), else keep
+// the raw string. Mirrors how the Launch panel reads declared inputs.
+const kvToTypedObj = (rows: KV[]): Record<string, unknown> => {
+  const o: Record<string, unknown> = {};
+  for (const r of rows) {
+    if (!r.key.trim()) continue;
+    try { o[r.key.trim()] = JSON.parse(r.value); } catch { o[r.key.trim()] = r.value; }
+  }
+  return o;
+};
 const splitPaths = (s: string): string[] => s.split(/[\s,]+/).filter(Boolean);
 
 function parseBody(text: string): unknown {
@@ -156,6 +171,7 @@ function fromDefinition(def: WorkflowDefinition): {
   nodes: JobNode[];
   edges: Edge[];
   counter: number;
+  context: KV[];
 } {
   const jobs = def.spec.jobs ?? [];
   const trigger = (def.spec.trigger ?? {}) as { type?: string; cron?: string; timezone?: string };
@@ -172,6 +188,7 @@ function fromDefinition(def: WorkflowDefinition): {
     d.outputs = objToKv(j.outputs as Record<string, unknown>);
     d.timeout = String((j as { timeout?: string }).timeout ?? "");
     d.retries = Number((j as { retry?: { max_attempts?: number } }).retry?.max_attempts ?? 1);
+    d.condition = String((j as { condition?: string }).condition ?? "");
     if (type === "command") {
       d.command = String(w.command ?? "");
       d.artifacts = Array.isArray(w.artifacts) ? (w.artifacts as string[]).join(" ") : "";
@@ -203,6 +220,7 @@ function fromDefinition(def: WorkflowDefinition): {
     nodes,
     edges,
     counter: jobs.length,
+    context: objToKv(def.spec.context as Record<string, unknown> | undefined),
   };
 }
 
@@ -214,6 +232,7 @@ function toYaml(
   tz: string,
   nodes: JobNode[],
   edges: Edge[],
+  context: KV[],
 ): string {
   const idOf = new Map(nodes.map((n) => [n.id, n.data.jobId]));
   const needsOf = (nodeId: string): string[] =>
@@ -256,10 +275,17 @@ function toYaml(
     if (Object.keys(outs).length) job.outputs = outs;
     if (d.timeout.trim()) job.timeout = d.timeout.trim();
     if (d.retries > 1) job.retry = { max_attempts: d.retries };
+    if (d.condition.trim()) job.condition = d.condition.trim();
     return job;
   });
 
-  return stringify({ apiVersion: "moiraflow/v1", kind: "Workflow", metadata: { name }, spec: { trigger, jobs } });
+  const ctx = kvToTypedObj(context);
+  const spec: Record<string, unknown> = {
+    trigger,
+    ...(Object.keys(ctx).length ? { context: ctx } : {}),
+    jobs,
+  };
+  return stringify({ apiVersion: "moiraflow/v1", kind: "Workflow", metadata: { name }, spec });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,13 +311,14 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const seed = useMemo(() => {
     if (editWorkflow) return fromDefinition(editWorkflow.definition);
     const n: JobNode = { id: "n1", type: "job", position: { x: 60, y: 60 }, data: blankData("job_1", "command") };
-    return { name: "daily_import", triggerType: "manual" as const, cron: "0 6 * * *", tz: "", nodes: [n], edges: [], counter: 1 };
+    return { name: "daily_import", triggerType: "manual" as const, cron: "0 6 * * *", tz: "", nodes: [n], edges: [], counter: 1, context: [] as KV[] };
   }, [editWorkflow]);
 
   const [name, setName] = useState(seed.name);
   const [triggerType, setTriggerType] = useState<"manual" | "cron">(seed.triggerType);
   const [cron, setCron] = useState(seed.cron);
   const [tz, setTz] = useState(seed.tz);
+  const [context, setContext] = useState<KV[]>(seed.context);
   const [nodes, setNodes, onNodesChange] = useNodesState<JobNode>(seed.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(seed.edges);
   const [tab, setTab] = useState<"visual" | "code">("visual");
@@ -303,7 +330,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const { screenToFlowPosition } = useReactFlow();
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const yaml = useMemo(() => toYaml(name, triggerType, cron, tz, nodes, edges), [name, triggerType, cron, tz, nodes, edges]);
+  const yaml = useMemo(() => toYaml(name, triggerType, cron, tz, nodes, edges, context), [name, triggerType, cron, tz, nodes, edges, context]);
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
 
   const updateData = useCallback(
@@ -411,6 +438,12 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
               <input className="input" style={{ width: 150 }} value={tz} onChange={(e) => setTz(e.target.value)} placeholder="Europe/Madrid" /></div>
           </>
         )}
+      </div>
+
+      {/* workflow inputs (spec.context) — declared params, overridable at launch */}
+      <div className="builder-inputs">
+        <KvEditor label="Workflow inputs (context)" rows={context} onChange={setContext}
+          placeholderKey="name" placeholderValue="default (text or JSON)" mono />
       </div>
 
       {/* tabs */}
@@ -586,6 +619,11 @@ function PropsPanel({ data, onChange, onRemove }: {
 
       <KvEditor label={paramLabel} rows={data.params} onChange={(params) => onChange({ params })} placeholderKey="name" placeholderValue="value" />
       <KvEditor label="Outputs (expressions)" rows={data.outputs} onChange={(outputs) => onChange({ outputs })} placeholderKey="name" placeholderValue="{{ ... }}" mono />
+
+      <Field label="Condition (optional) — run only if true">
+        <input className="input mono" value={data.condition} onChange={(e) => onChange({ condition: e.target.value })}
+          placeholder="{{ context.go }} == yes" />
+      </Field>
 
       <div className="row" style={{ gap: 10 }}>
         <div className="grow">

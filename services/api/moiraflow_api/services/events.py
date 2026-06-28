@@ -107,6 +107,21 @@ def _project_job(
             )
         )
         return
+    if event["type"] == "job_skipped":
+        # A condition was false (or an upstream job was skipped): record the job as
+        # skipped without a started/succeeded lifecycle.
+        session.add(
+            models.JobExecution(
+                tenant_id=execution.tenant_id,
+                execution_id=execution.id,
+                job_id=job_id,
+                job_type="",
+                status="skipped",
+                started_at=now,
+                finished_at=now,
+            )
+        )
+        return
     job = session.scalar(
         select(models.JobExecution).where(
             models.JobExecution.execution_id == execution.id,
