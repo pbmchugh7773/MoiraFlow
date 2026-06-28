@@ -1,6 +1,7 @@
 import {
   Background,
   Handle,
+  MarkerType,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -100,18 +101,27 @@ function JobNodeView({ data, selected }: NodeProps<JobNode>) {
   const tint = TINT[data.type];
   return (
     <div className={`flow-node${selected ? " selected" : ""}`} style={{ borderColor: tint }}>
-      <Handle type="target" position={Position.Left} className="flow-handle" />
+      <Handle id="in" type="target" position={Position.Left} className="flow-handle" />
       <div className="flow-node-id mono">{data.jobId || "—"}</div>
       <div className="flow-node-meta">
         <span className="flow-tag" style={{ color: tint, borderColor: tint }}>{data.type}</span>
         {data.run_on === "agent" && <span className="flow-tag agent">agent</span>}
       </div>
-      <Handle type="source" position={Position.Right} className="flow-handle" />
+      <Handle id="out" type="source" position={Position.Right} className="flow-handle" />
     </div>
   );
 }
 
 const NODE_TYPES = { job: JobNodeView };
+
+// Shared edge appearance (initial + drawn edges render identically).
+const EDGE_OPTIONS = {
+  style: { stroke: "rgba(201,168,106,0.6)", strokeWidth: 1.6 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(201,168,106,0.75)" },
+};
+const dep = (source: string, target: string): Edge => ({
+  id: `${source}-${target}`, source, target, sourceHandle: "out", targetHandle: "in",
+});
 
 // ── auto-layout (depth-based, left→right) for edit-mode imports ───────────────
 function layout(ids: string[], needsOf: (id: string) => string[]): Record<string, { x: number; y: number }> {
@@ -180,11 +190,9 @@ function fromDefinition(def: WorkflowDefinition): {
   });
 
   const edges: Edge[] = jobs.flatMap((j) =>
-    needsOf(j.id).map((n) => ({
-      id: `${keyOf.get(n)}-${keyOf.get(j.id)}`,
-      source: keyOf.get(n)!,
-      target: keyOf.get(j.id)!,
-    })),
+    needsOf(j.id)
+      .filter((n) => keyOf.has(n))
+      .map((n) => dep(keyOf.get(n)!, keyOf.get(j.id)!)),
   );
 
   return {
@@ -327,7 +335,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const onConnect = useCallback(
     (c: Connection) => {
       if (c.source === c.target) return;
-      setEdges((es) => addEdge({ ...c, id: `${c.source}-${c.target}` }, es));
+      setEdges((es) => addEdge(dep(c.source, c.target), es));
     },
     [setEdges],
   );
@@ -433,6 +441,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
                 onSelectionChange={onSelectionChange}
                 onNodeClick={(_, n) => setSelectedId(n.id)}
                 onPaneClick={() => setSelectedId(null)}
+                defaultEdgeOptions={EDGE_OPTIONS}
                 fitView
                 proOptions={{ hideAttribution: true }}
               >
