@@ -3,8 +3,10 @@ from datetime import timedelta
 from moiraflow_worker.policies import build_retry_policy
 
 
-def test_none_retry_returns_none():
-    assert build_retry_policy(None) is None
+def test_none_retry_uses_bounded_default():
+    # No declared retry -> a bounded default so failures can't retry forever.
+    policy = build_retry_policy(None)
+    assert policy.maximum_attempts == 3
 
 
 def test_fixed_strategy_has_no_backoff():
