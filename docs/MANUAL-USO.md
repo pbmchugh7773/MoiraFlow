@@ -106,6 +106,22 @@ Un job con `condition` corre solo si la expresión es verdadera; si no, se **sal
 - Una comparación: `{{ context.env }} == prod`, `{{ context.count }} > 0`
   (operadores `== != >= <= > <`).
 
+### Manejo de fallos (`spec.on_error`)
+A nivel workflow, decide qué pasa cuando un job falla:
+- **`fail`** (default): un job que falla **aborta** toda la ejecución (status `failed`).
+- **`continue`**: el fallo se **tolera** — la corrida sigue con los branches alcanzables
+  (los dependientes del job fallido se saltan en cascada), y la ejecución **completa**
+  (`success`). Los jobs fallidos quedan visibles como `failed` en el detalle. Útil para
+  pasos opcionales/best-effort.
+
+```yaml
+spec:
+  on_error: continue
+  jobs:
+    - { id: optional_sync, type: rest, with: { method: GET, url: https://flaky.io } }
+    - { id: report, type: command, with: { command: echo always-runs } }  # corre igual
+```
+
 ---
 
 ## 5. Lanzar y monitorear

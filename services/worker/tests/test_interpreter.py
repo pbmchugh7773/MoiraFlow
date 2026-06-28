@@ -1,12 +1,16 @@
 import asyncio
 
+import pytest
+
 from moiraflow_worker.interpreter import JobRequest, JobResult, run_dag
 
 
-def _defn(jobs, context=None):
+def _defn(jobs, context=None, on_error=None):
     spec = {"trigger": {"type": "manual"}, "jobs": jobs}
     if context is not None:
         spec["context"] = context
+    if on_error is not None:
+        spec["on_error"] = on_error
     return {
         "apiVersion": "moiraflow/v1",
         "kind": "Workflow",
@@ -175,6 +179,70 @@ def test_skipped_job_emits_event():
     assert len(skipped) == 1
     assert skipped[0]["job_id"] == "a"
     assert skipped[0]["payload"]["reason"] == "condition_false"
+
+
+def _fail_on(fail_ids):
+    async def run_job(req: JobRequest) -> JobResult:
+        if req.job_id in fail_ids:
+            raise RuntimeError(f"{req.job_id} boom")
+        return JobResult(job_id=req.job_id, outputs=dict(req.outputs_spec))
+
+    return run_job
+
+
+def test_default_on_error_fail_aborts_the_run():
+    defn = _defn([{"id": "a", "type": "command", "with": {"command": "x"}}])
+    with pytest.raises(RuntimeError):
+        asyncio.run(run_dag(defn, {}, _fail_on({"a"})))
+
+
+def test_on_error_continue_tolerates_a_failure_and_finishes():
+    # 'a' fails but 'b' is independent — the run completes instead of aborting.
+    defn = _defn(
+        [
+            {"id": "a", "type": "command", "with": {"command": "x"}},
+            {"id": "b", "type": "command", "with": {"command": "x"}},
+        ],
+        on_error="continue",
+    )
+    result = asyncio.run(run_dag(defn, {}, _fail_on({"a"})))
+    assert "b" in result["jobs"]  # independent branch ran
+    assert "a" not in result["jobs"]  # failed job produced no outputs
+
+
+def test_on_error_continue_cascade_skips_dependents_of_failed():
+    calls = []
+
+    async def run_job(req: JobRequest) -> JobResult:
+        calls.append(req.job_id)
+        if req.job_id == "a":
+            raise RuntimeError("boom")
+        return JobResult(job_id=req.job_id, outputs={})
+
+    defn = _defn(
+        [
+            {"id": "a", "type": "command", "with": {"command": "x"}},
+            {"id": "b", "type": "command", "needs": ["a"], "with": {"command": "x"}},
+            {"id": "c", "type": "command", "with": {"command": "x"}},
+        ],
+        on_error="continue",
+    )
+    asyncio.run(run_dag(defn, {}, run_job))
+    assert "b" not in calls  # depends on the failed 'a' -> cascade-skipped
+    assert "c" in calls  # independent -> still ran
+
+
+def test_on_error_continue_reports_failed_jobs_in_finish_event():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    defn = _defn([{"id": "a", "type": "command", "with": {"command": "x"}}], on_error="continue")
+    asyncio.run(run_dag(defn, {}, _fail_on({"a"}), emit=emit))
+    finished = next(e for e in events if e["type"] == "execution_finished")
+    assert finished["payload"]["failed_jobs"] == ["a"]
+    assert [e for e in events if e["type"] == "job_failed"]  # the failure was emitted
 
 
 def test_parallel_branches_run_in_same_batch():

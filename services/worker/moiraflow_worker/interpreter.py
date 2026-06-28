@@ -72,12 +72,17 @@ async def run_dag(
     """
     emit = emit or _noop_emit
     jobs: list[dict[str, Any]] = definition["spec"]["jobs"]
+    # `fail` (default): a failed job aborts the whole run. `continue`: tolerate it —
+    # keep running the reachable jobs; dependents of a failed job cascade-skip. The
+    # run still completes (the failed jobs are recorded per-job).
+    on_error = definition["spec"].get("on_error", "fail")
     # Effective context = workflow-declared defaults overlaid with launch inputs
     # (override wins). The merged map is read-only for the whole run (ADR-0013).
     context = {**definition["spec"].get("context", {}), **input_context}
     outputs_by_job: dict[str, dict[str, Any]] = {}
     completed: set[str] = set()
     skipped: set[str] = set()
+    failed: set[str] = set()
 
     await emit(
         {
@@ -87,8 +92,8 @@ async def run_dag(
         }
     )
     try:
-        while len(completed) + len(skipped) < len(jobs):
-            done = completed | skipped
+        while len(completed) + len(skipped) + len(failed) < len(jobs):
+            done = completed | skipped | failed
             scope = RenderScope(context=context, outputs=outputs_by_job)
             batch = ready_jobs(jobs, completed=done, running=set())
             if not batch:  # pragma: no cover - a validated DAG always makes progress
@@ -96,7 +101,7 @@ async def run_dag(
 
             to_run = []
             for job in batch:
-                reason = _skip_reason(job, skipped, scope)
+                reason = _skip_reason(job, skipped, failed, scope)
                 if reason is not None:
                     skipped.add(job["id"])
                     await emit(
@@ -105,25 +110,46 @@ async def run_dag(
                 else:
                     to_run.append(job)
 
-            results = await asyncio.gather(*(_execute(job, scope, run_job, emit) for job in to_run))
-            for result in results:
-                outputs_by_job[result.job_id] = result.outputs
-                completed.add(result.job_id)
+            # return_exceptions so one failure doesn't cancel its sibling branch.
+            results = await asyncio.gather(
+                *(_execute(job, scope, run_job, emit) for job in to_run),
+                return_exceptions=True,
+            )
+            for job, result in zip(to_run, results):
+                if isinstance(result, BaseException):
+                    if on_error != "continue":
+                        raise result  # `fail`: abort the run
+                    failed.add(job["id"])  # `continue`: tolerate; dependents skip
+                else:
+                    outputs_by_job[result.job_id] = result.outputs
+                    completed.add(result.job_id)
     except Exception as exc:
         await emit({"type": "execution_failed", "job_id": None, "payload": {"error": str(exc)}})
         raise
 
-    await emit({"type": "execution_finished", "job_id": None, "payload": {"status": "success"}})
+    await emit(
+        {
+            "type": "execution_finished",
+            "job_id": None,
+            "payload": {"status": "success", "failed_jobs": sorted(failed)},
+        }
+    )
     return {
         "context": context,
         "jobs": {job_id: {"outputs": outs} for job_id, outs in outputs_by_job.items()},
     }
 
 
-def _skip_reason(job: dict[str, Any], skipped: set[str], scope: RenderScope) -> str | None:
-    """Why this ready job should be skipped, or None to run it. A job is skipped
-    when an upstream dependency was skipped (cascade) or its `condition` is false."""
-    if any(dep in skipped for dep in job.get("needs", [])):
+def _skip_reason(
+    job: dict[str, Any], skipped: set[str], failed: set[str], scope: RenderScope
+) -> str | None:
+    """Why this ready job should be skipped, or None to run it. A job is skipped when
+    an upstream dependency failed (under on_error: continue) or was skipped (cascade),
+    or its `condition` is false."""
+    needs = job.get("needs", [])
+    if any(dep in failed for dep in needs):
+        return "upstream_failed"
+    if any(dep in skipped for dep in needs):
         return "upstream_skipped"
     condition = job.get("condition")
     if condition and not evaluate_condition(condition, scope):
