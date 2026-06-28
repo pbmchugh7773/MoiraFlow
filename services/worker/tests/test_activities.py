@@ -11,11 +11,11 @@ def _mock_client(handler):
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 
-def test_execute_rest_returns_status_on_expected():
+def test_execute_rest_returns_status_and_parsed_body():
     def handler(request):
         assert request.method == "GET"
         assert str(request.url) == "https://api.test/x"
-        return httpx.Response(200, json={"ok": True})
+        return httpx.Response(200, json={"status": "healthy", "version": "1.0.0"})
 
     async def run():
         async with _mock_client(handler) as client:
@@ -23,7 +23,25 @@ def test_execute_rest_returns_status_on_expected():
                 {"method": "GET", "url": "https://api.test/x", "expect_status": [200]}, client
             )
 
-    assert asyncio.run(run()) == 200
+    status, body = asyncio.run(run())
+    assert status == 200
+    assert body == {"status": "healthy", "version": "1.0.0"}
+
+
+def test_run_rest_job_exposes_status_and_body_as_outputs():
+    def handler(request):
+        return httpx.Response(200, json={"status": "healthy"})
+
+    async def run():
+        async with _mock_client(handler) as client:
+            status, body = await execute_rest(
+                {"method": "GET", "url": "https://api.test/h", "expect_status": [200]}, client
+            )
+        return status, body
+
+    status, body = asyncio.run(run())
+    assert status == 200
+    assert body == {"status": "healthy"}
 
 
 def test_execute_rest_raises_on_unexpected_status():
@@ -59,7 +77,8 @@ def test_execute_rest_sends_body_as_json():
                 client,
             )
 
-    assert asyncio.run(run()) == 201
+    status, _ = asyncio.run(run())
+    assert status == 201
     assert b'"name"' in seen["content"]
 
 

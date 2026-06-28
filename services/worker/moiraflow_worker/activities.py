@@ -10,6 +10,7 @@ is orthogonal to this execution contract.
 from __future__ import annotations
 
 import collections
+import json
 import os
 import shutil
 import subprocess
@@ -150,8 +151,19 @@ def run_command_job(request: JobRequest) -> JobResult:
             shutil.rmtree(workdir, ignore_errors=True)
 
 
-async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> int:
-    """Perform the HTTP request and enforce `expect_status`. Returns the status code.
+def _parse_response_body(response: httpx.Response) -> Any:
+    """Decode the response body: parsed JSON when the response is JSON, else text."""
+    if "json" in response.headers.get("content-type", "").lower():
+        try:
+            return response.json()
+        except ValueError:
+            return response.text
+    return response.text
+
+
+async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> tuple[int, Any]:
+    """Perform the HTTP request and enforce `expect_status`. Returns
+    ``(status_code, body)`` where body is parsed JSON (or text).
 
     Separated from the activity so it can be tested offline with httpx.MockTransport.
     """
@@ -167,14 +179,19 @@ async def execute_rest(inputs: dict[str, Any], client: httpx.AsyncClient) -> int
             f"rest {inputs['method']} {inputs['url']} -> {response.status_code}, "
             f"expected {expected}"
         )
-    return response.status_code
+    return response.status_code, _parse_response_body(response)
 
 
 @activity.defn(name="run_rest_job")
 async def run_rest_job(request: JobRequest) -> JobResult:
     async with httpx.AsyncClient() as client:
-        await execute_rest(request.inputs, client)
-    return JobResult(job_id=request.job_id, outputs=dict(request.outputs_spec), attempt=_attempt())
+        status, body = await execute_rest(request.inputs, client)
+    # Expose the response so downstream jobs can read jobs.<id>.outputs.status/.body,
+    # plus echo a redacted log line so the response is visible in the UI.
+    outputs: dict[str, Any] = {**dict(request.outputs_spec), "status": status, "body": body}
+    summary = json.dumps(body, ensure_ascii=False) if not isinstance(body, str) else body
+    _emit_log(request.job_id, _workflow_id(), redact(f"→ {status} {summary[:1000]}"))
+    return JobResult(job_id=request.job_id, outputs=outputs, attempt=_attempt())
 
 
 @activity.defn(name="run_sql_job")
