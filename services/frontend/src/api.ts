@@ -36,6 +36,16 @@ export interface EnrollToken { enrollment_token: string; temporal_host: string; 
 export interface ValidationError { code: string; message: string; loc: string }
 export interface ValidationResult { valid: boolean; errors: ValidationError[] }
 
+export interface Schedule {
+  id: string; name: string; cron: string | null; timezone: string | null; enabled: boolean;
+}
+export interface Overview {
+  workflows: number;
+  executions: { total: number; by_status: Record<string, number>; success_rate: number | null };
+  schedules: Schedule[];
+  recent_failures: { id: string; workflow_name: string | null; created_at: string }[];
+}
+
 export interface JobDef { id: string; type?: string; needs?: string[]; with?: Record<string, unknown>; outputs?: Record<string, string> }
 export interface WorkflowDefinition {
   apiVersion: string; kind: string; metadata: { name: string };
@@ -131,6 +141,8 @@ export const api = {
   getArtifacts: (id: string) => request<Artifact[]>(`/executions/${id}/artifacts`),
   getExecutionDefinition: (id: string) =>
     request<WorkflowDefinition>(`/executions/${id}/definition`),
+
+  getOverview: () => request<Overview>("/overview"),
 };
 
 export function streamUrl(executionId: string): string {

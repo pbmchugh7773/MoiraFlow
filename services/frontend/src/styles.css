@@ -296,3 +296,12 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .react-flow__controls-button svg { fill: var(--text-dim); }
 .react-flow__minimap { background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .react-flow__attribution { display: none; }
+
+/* ── dashboard / overview ──────────────────────────────────────────────────── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
+.stat-card { background: linear-gradient(180deg, var(--panel), var(--ink-2)); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+.stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); line-height: 1.1; }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-faint); margin-top: 6px; }
+.dash-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .dash-cols { grid-template-columns: 1fr; } }

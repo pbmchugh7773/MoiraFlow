@@ -19,6 +19,8 @@ export const JOB_TYPES = [
   { type: "file_transfer", tint: "#d49a6a" },
 ] as const;
 
+export type Notif = { on: string; url: string };
+
 export type JobType = (typeof JOB_TYPES)[number]["type"];
 export const JOB_TYPE_LIST: JobType[] = JOB_TYPES.map((j) => j.type);
 export const TINT: Record<JobType, string> = Object.fromEntries(
@@ -173,6 +175,7 @@ export function fromDefinition(def: WorkflowDefinition): {
   edges: Edge[];
   counter: number;
   context: KV[];
+  notifications: Notif[];
 } {
   const jobs = def.spec.jobs ?? [];
   const trigger = (def.spec.trigger ?? {}) as { type?: string; cron?: string; timezone?: string };
@@ -235,6 +238,10 @@ export function fromDefinition(def: WorkflowDefinition): {
     edges,
     counter: jobs.length,
     context: objToKv(def.spec.context as Record<string, unknown> | undefined),
+    notifications: ((def.spec.notifications as { on?: string; url?: string }[]) ?? []).map((n) => ({
+      on: n.on ?? "failed",
+      url: n.url ?? "",
+    })),
   };
 }
 
@@ -247,6 +254,7 @@ export function toYaml(
   nodes: JobNode[],
   edges: Edge[],
   context: KV[],
+  notifications: Notif[] = [],
 ): string {
   const idOf = new Map(nodes.map((n) => [n.id, n.data.jobId]));
   const needsOf = (nodeId: string): string[] =>
@@ -307,9 +315,13 @@ export function toYaml(
   });
 
   const ctx = kvToTypedObj(context);
+  const notifs = notifications
+    .filter((n) => n.url.trim())
+    .map((n) => ({ on: n.on, type: "webhook", url: n.url.trim() }));
   const spec: Record<string, unknown> = {
     trigger,
     ...(Object.keys(ctx).length ? { context: ctx } : {}),
+    ...(notifs.length ? { notifications: notifs } : {}),
     jobs,
   };
   // Serialize as YAML 1.1: the API parses with PyYAML (1.1), where yes/no/on/off

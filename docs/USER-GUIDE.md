@@ -25,6 +25,11 @@ live, and resolving the most common problems. To install the stack, see the
 
 ## 2. Signing in and roles
 
+The **Dashboard** (the landing page) gives an at-a-glance view: workflow and execution
+counts, success rate, the cron **schedules** (with their next-run cadence and enabled
+state), and **recent failures** (click one to open the execution).
+
+
 Open **http://localhost:5173** and sign in. Your role (RBAC) determines what you can do:
 
 | Role | Read | Launch executions | Author/edit workflows | Admin (users/secrets/agents) |
@@ -198,6 +203,23 @@ spec:
     - { id: optional_sync, type: rest, with: { method: GET, url: https://flaky.io } }
     - { id: report, type: command, with: { command: echo always-runs } }  # runs anyway
 ```
+
+### Notifications (`spec.notifications`)
+
+Get told when a run finishes — especially useful for scheduled (cron) workflows. Each rule
+POSTs the outcome to a webhook when the execution reaches a terminal state. Authored in the
+builder (the **Notifications** field next to Workflow inputs) or in YAML:
+
+```yaml
+spec:
+  notifications:
+    - { on: failed,  type: webhook, url: https://hooks.example.com/alerts }
+    - { on: success, type: webhook, url: https://hooks.example.com/done }
+    # on: always  fires for both
+```
+
+The POST body is `{ execution_id, workflow_id, workflow_name, status, failed_jobs,
+trigger_source }`. Delivery is best-effort — a dead webhook never affects the run.
 
 ---
 

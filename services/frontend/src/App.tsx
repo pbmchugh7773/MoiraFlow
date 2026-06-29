@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { RequireAuth, useAuth } from "./auth";
 import { Login } from "./pages/Login";
+import { Dashboard } from "./pages/Dashboard";
 import { Workflows } from "./pages/Workflows";
 import { WorkflowDetail } from "./pages/WorkflowDetail";
 import { Executions } from "./pages/Executions";
@@ -29,6 +30,7 @@ function Shell() {
           </div>
         </div>
         <nav className="nav">
+          <NavLink to="/dashboard" className={({ isActive }) => (isActive ? "active" : "")}>Dashboard</NavLink>
           <NavLink to="/workflows" className={({ isActive }) => (isActive ? "active" : "")}>Workflows</NavLink>
           <NavLink to="/executions" className={({ isActive }) => (isActive ? "active" : "")}>Executions</NavLink>
           {user?.role === "admin" && <>
@@ -61,7 +63,8 @@ export function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth><Shell /></RequireAuth>}>
-        <Route index element={<Navigate to="/workflows" replace />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/workflows" element={<Workflows />} />
         <Route path="/workflows/:id" element={<WorkflowDetail />} />
         <Route path="/executions" element={<Executions />} />

@@ -58,12 +58,20 @@ class Sla(BaseModel):
     criticality: Literal["low", "medium", "high"] | None = None
 
 
+class Notification(BaseModel):
+    model_config = _STRICT
+    on: Literal["failed", "success", "always"] = "failed"
+    type: Literal["webhook"] = "webhook"
+    url: str  # the webhook to POST the execution outcome to
+
+
 class Spec(BaseModel):
     model_config = _STRICT
     trigger: Trigger
     context: dict[str, Any] = Field(default_factory=dict)
     on_error: OnError = "fail"
     sla: Sla | None = None
+    notifications: list[Notification] = Field(default_factory=list)
     jobs: list[Job] = Field(min_length=1)
 
 

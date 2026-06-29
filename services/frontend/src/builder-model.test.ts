@@ -164,6 +164,16 @@ describe("toYaml", () => {
     expect(out.spec.context).toEqual({ count: 5 });
   });
 
+  it("emits spec.notifications from the rules (skipping blank urls)", () => {
+    const out = toYaml("wf", "manual", "", "", [node("n1", "command", { jobId: "a" })], [], [], [
+      { on: "failed", url: "https://hooks/x" },
+      { on: "success", url: "  " },
+    ]);
+    expect(parse(out).spec.notifications).toEqual([
+      { on: "failed", type: "webhook", url: "https://hooks/x" },
+    ]);
+  });
+
   it("omits empty optional sections", () => {
     const job = yaml([node("n1", "command", { jobId: "a", command: "x" })]).spec.jobs[0];
     expect(job.outputs).toBeUndefined();

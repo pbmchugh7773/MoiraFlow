@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import models
+from . import notifications
 
 _TERMINAL_STATUS = {"execution_finished": "success", "execution_failed": "failed"}
 
@@ -81,10 +82,29 @@ def handle_event(session: Session, event: dict[str, Any]) -> models.ExecutionEve
         execution.finished_at = now
         if event_type == "execution_failed":
             execution.error = event.get("payload", {})
+        _notify_terminal(session, execution, payload)
 
     _project_job(session, execution, event, now)
     session.flush()
     return row
+
+
+def _notify_terminal(
+    session: Session, execution: models.Execution, payload: dict[str, Any]
+) -> None:
+    """Fire the workflow's notifications for this terminal run (best-effort)."""
+    try:
+        version = session.get(models.WorkflowVersion, execution.workflow_version_id)
+        if version is None:
+            return
+        notifications.dispatch(
+            execution,
+            dict(version.definition),
+            execution.status,
+            failed_jobs=list(payload.get("failed_jobs") or []),
+        )
+    except Exception:  # pragma: no cover - never let notifications break projection
+        pass
 
 
 def _project_job(

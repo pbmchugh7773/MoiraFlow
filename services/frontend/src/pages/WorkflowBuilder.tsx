@@ -28,6 +28,7 @@ import {
   type JobNode,
   type JobType,
   type KV,
+  type Notif,
 } from "../builder-model";
 import { FlowNode, jobIncomplete } from "../FlowNode";
 import { JobIcon } from "../JobIcon";
@@ -63,7 +64,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const seed = useMemo(() => {
     if (editWorkflow) return fromDefinition(editWorkflow.definition);
     const n: JobNode = { id: "n1", type: "job", position: { x: 60, y: 60 }, data: blankData("job_1", "command") };
-    return { name: "daily_import", triggerType: "manual" as const, cron: "0 6 * * *", tz: "", nodes: [n], edges: [], counter: 1, context: [] as KV[] };
+    return { name: "daily_import", triggerType: "manual" as const, cron: "0 6 * * *", tz: "", nodes: [n], edges: [], counter: 1, context: [] as KV[], notifications: [] as Notif[] };
   }, [editWorkflow]);
 
   const [name, setName] = useState(seed.name);
@@ -71,6 +72,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const [cron, setCron] = useState(seed.cron);
   const [tz, setTz] = useState(seed.tz);
   const [context, setContext] = useState<KV[]>(seed.context);
+  const [notifications, setNotifications] = useState<Notif[]>(seed.notifications);
   const [nodes, setNodes, onNodesChange] = useNodesState<JobNode>(seed.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(seed.edges);
   const [tab, setTab] = useState<"visual" | "code">("visual");
@@ -82,7 +84,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const { screenToFlowPosition, fitView } = useReactFlow();
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const yaml = useMemo(() => toYaml(name, triggerType, cron, tz, nodes, edges, context), [name, triggerType, cron, tz, nodes, edges, context]);
+  const yaml = useMemo(() => toYaml(name, triggerType, cron, tz, nodes, edges, context, notifications), [name, triggerType, cron, tz, nodes, edges, context, notifications]);
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
 
   const updateData = useCallback(
@@ -250,6 +252,8 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
       <div className="builder-inputs">
         <KvEditor label="Workflow inputs (context)" rows={context} onChange={setContext}
           placeholderKey="name" placeholderValue="default (text or JSON)" mono />
+        <div style={{ height: 12 }} />
+        <NotificationsEditor rows={notifications} onChange={setNotifications} />
       </div>
 
       {/* tabs */}
@@ -510,6 +514,35 @@ function PropsPanel({ data, onChange, onRemove }: {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="label">{label}</label>{children}</div>;
+}
+
+function NotificationsEditor({ rows, onChange }: {
+  rows: Notif[];
+  onChange: (rows: Notif[]) => void;
+}) {
+  const set = (i: number, p: Partial<Notif>) => onChange(rows.map((r, k) => (k === i ? { ...r, ...p } : r)));
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      <div className="row between">
+        <label className="label">Notifications (webhook on outcome)</label>
+        <button className="btn btn-ghost" style={{ padding: "3px 9px", fontSize: 11.5 }}
+          onClick={() => onChange([...rows, { on: "failed", url: "" }])}>+ Add</button>
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} className="row" style={{ gap: 6 }}>
+          <select className="select" style={{ maxWidth: 110 }} value={r.on} onChange={(e) => set(i, { on: e.target.value })}>
+            <option value="failed">on failed</option>
+            <option value="success">on success</option>
+            <option value="always">always</option>
+          </select>
+          <input className="input mono grow" value={r.url} placeholder="https://hooks.example.com/…"
+            onChange={(e) => set(i, { url: e.target.value })} />
+          <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 12, color: "var(--fail)" }}
+            onClick={() => onChange(rows.filter((_, k) => k !== i))}>×</button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function KvEditor({ label, rows, onChange, placeholderKey, placeholderValue, mono }: {

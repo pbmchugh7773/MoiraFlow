@@ -75,6 +75,27 @@ def test_job_events_are_stored_in_order(session, execution):
     ]
 
 
+def test_terminal_event_fires_notifications(session, execution, monkeypatch):
+    from moiraflow_api.services import notifications
+
+    calls = []
+    monkeypatch.setattr(notifications, "_default_sender", lambda u, p: calls.append((u, p)))
+    version = session.get(models.WorkflowVersion, execution.workflow_version_id)
+    version.definition = {
+        "spec": {
+            "notifications": [{"on": "failed", "type": "webhook", "url": "http://hook"}],
+            "jobs": [],
+        }
+    }
+    session.flush()
+
+    svc.handle_event(session, _ev("execution_failed", {"error": "boom"}))
+
+    assert len(calls) == 1
+    assert calls[0][0] == "http://hook"
+    assert calls[0][1]["status"] == "failed"
+
+
 def test_unknown_execution_is_ignored(session):
     assert svc.handle_event(session, _ev("execution_started")) is None
 
