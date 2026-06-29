@@ -25,3 +25,6 @@ htmlcov/
 .idea/
 .DS_Store
 .obsidian/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
