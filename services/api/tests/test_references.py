@@ -115,3 +115,27 @@ def test_reference_nested_in_dict_and_list_is_scanned():
     )
     codes = [e.code for e in validate_references(wf)]
     assert codes.count("unknown_context_ref") == 2
+
+
+def test_auto_outputs_are_referenceable_without_declaration():
+    # rest's status/body and file_transfer's size/artifact_key are produced at runtime;
+    # downstream references must validate even though they aren't declared.
+    wf = _wf(
+        [
+            {"id": "fetch", "type": "rest", "with": {"method": "GET", "url": "https://x"}},
+            {
+                "id": "move",
+                "type": "file_transfer",
+                "with": {"source": "https://x/a", "destination": "artifact://a"},
+            },
+            {
+                "id": "use",
+                "type": "command",
+                "needs": ["fetch", "move"],
+                "with": {
+                    "command": "echo {{ jobs.fetch.outputs.body }} {{ jobs.move.outputs.size }}"
+                },
+            },
+        ]
+    )
+    assert validate_references(wf) == []

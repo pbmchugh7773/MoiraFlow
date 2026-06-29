@@ -130,6 +130,23 @@ describe("toYaml", () => {
     expect(job.with).toEqual({ format: "json", url: "https://x.io/d.json" });
   });
 
+  it("maps a file_transfer job with source/destination and SFTP credentials", () => {
+    const job = yaml([
+      node("n1", "file_transfer", {
+        jobId: "move",
+        type: "file_transfer",
+        source: "sftp://host/in/data.csv",
+        destination: "artifact://data.csv",
+        credentials: "secret://sftp_prod",
+      }),
+    ]).spec.jobs[0];
+    expect(job.with).toEqual({
+      source: "sftp://host/in/data.csv",
+      destination: "artifact://data.csv",
+      credentials: "secret://sftp_prod",
+    });
+  });
+
   it("emits typed spec.context from the workflow inputs", () => {
     const out = yaml([node("n1", "command", { jobId: "a" })], [], [{ key: "count", value: "5" }]);
     expect(out.spec.context).toEqual({ count: 5 });

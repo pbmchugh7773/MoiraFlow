@@ -23,7 +23,7 @@ def test_job_types_catalog():
     resp = client.get("/api/v1/catalog/job-types")
     assert resp.status_code == 200
     types = {t["type"] for t in resp.json()}
-    assert types == {"command", "rest", "sql", "transform"}
+    assert types == {"command", "rest", "sql", "transform", "file_transfer"}
     command = next(t for t in resp.json() if t["type"] == "command")
     assert "command" in command["input_schema"]["properties"]
     transform = next(t for t in resp.json() if t["type"] == "transform")

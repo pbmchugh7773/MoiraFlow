@@ -27,6 +27,7 @@ from temporalio.exceptions import ApplicationError
 from .events import get_redis, publish_to_redis
 from .interpreter import JobRequest, JobResult
 from .isolation import apply_limits
+from .file_transfer import parse_credentials, transfer
 from .secrets import redact, resolve_reference
 from .storage import upload_artifacts
 from .transform import extract_path, parse_source
@@ -248,6 +249,50 @@ async def run_transform_job(request: JobRequest) -> JobResult:
     return JobResult(job_id=request.job_id, outputs=outputs, attempt=_attempt())
 
 
+@activity.defn(name="run_file_transfer_job")
+def run_file_transfer_job(request: JobRequest) -> JobResult:
+    """Move a file between a source and destination (http/s3/artifact/sftp).
+
+    SFTP credentials come from `secret://` (`with.credentials`, or per-side
+    `with.source_credentials` / `with.destination_credentials`). A destination of
+    `artifact://...` becomes a downloadable execution artifact.
+    """
+    inputs = request.inputs
+    shared = inputs.get("credentials")
+    src_ref = inputs.get("source_credentials", shared)
+    dst_ref = inputs.get("destination_credentials", shared)
+    src_creds = (
+        parse_credentials(resolve_reference(str(src_ref), request.tenant_id)) if src_ref else {}
+    )
+    dst_creds = (
+        parse_credentials(resolve_reference(str(dst_ref), request.tenant_id)) if dst_ref else {}
+    )
+    try:
+        result = transfer(
+            str(inputs["source"]),
+            str(inputs["destination"]),
+            src_creds=src_creds,
+            dst_creds=dst_creds,
+            tenant_id=request.tenant_id,
+            job_id=request.job_id,
+        )
+    except ValueError as exc:  # bad scheme / oversize — config error, won't retry better
+        raise ApplicationError(
+            f"file_transfer: {exc}", type="TransferConfig", non_retryable=True
+        ) from None
+
+    ref = result["ref"]
+    outputs: dict[str, Any] = {**dict(request.outputs_spec), "size": result["size"]}
+    if ref:
+        outputs["artifact_key"] = ref["object_key"]
+    return JobResult(
+        job_id=request.job_id,
+        outputs=outputs,
+        artifacts=[ref] if ref else [],
+        attempt=_attempt(),
+    )
+
+
 @activity.defn(name="run_sql_job")
 def run_sql_job(request: JobRequest) -> JobResult:
     """Run a SQL statement against a connection. `connection` is a DSN or a
@@ -275,5 +320,6 @@ SERVER_ACTIVITIES: list[Callable[..., Any]] = [
     run_rest_job,
     run_sql_job,
     run_transform_job,
+    run_file_transfer_job,
     publish_event,
 ]

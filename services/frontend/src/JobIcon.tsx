@@ -27,6 +27,14 @@ const PATHS: Record<string, JSX.Element> = {
       <path d="M9.5 2.5c2 0 1.5 2.2 1.5 3.3 0 1.1.8 1.7 1.8 2.2-1 .5-1.8 1.1-1.8 2.2 0 1.1.5 3.3-1.5 3.3" />
     </>
   ),
+  file_transfer: (
+    <>
+      <path d="M2.5 5.5h9.5" />
+      <path d="M9 3l3 2.5-3 2.5" />
+      <path d="M13.5 10.5H4" />
+      <path d="M7 8l-3 2.5 3 2.5" />
+    </>
+  ),
 };
 
 export function JobIcon({ type, size = 15 }: { type: string; size?: number }) {

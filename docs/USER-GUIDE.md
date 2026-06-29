@@ -96,6 +96,7 @@ spec:
 | `rest` | `method`, `url`, `body?`, `expect_status?` | `headers` | captures the response into `outputs.status` and `outputs.body` |
 | `sql` | `connection`, `statement` | `params` | `connection` is a DSN or a `secret://<key>` reference |
 | `transform` | `format` (csv/json/xml), `content?` or `url?` | — (uses `outputs` for paths) | parses a file/payload and extracts values; see below |
+| `file_transfer` | `source`, `destination`, `credentials?` | — | moves a file between schemes (http/s3/artifact/sftp); see below |
 
 ### Parsing and extracting data (`transform`)
 
@@ -118,6 +119,32 @@ download; each declared **output is a path expression** evaluated against the pa
 Path mini-language: `$` (whole document), `$.a.b` (nested keys), `$[0]` (index),
 `$.length` (count of a list), `items[*].field` (project a key across a list). Malformed
 data or an unresolvable path fails the job immediately (non-retryable).
+
+### Moving files (`file_transfer`)
+
+A `file_transfer` job reads a file from `source` and writes it to `destination`. Both
+are URIs; supported schemes:
+
+| Scheme | Read | Write | Notes |
+|---|:--:|:--:|---|
+| `https://` / `http://` | ✅ | — | download |
+| `s3://bucket/key` | ✅ | ✅ | S3 / MinIO object |
+| `artifact://key` | ✅ | ✅ | the MoiraFlow artifacts bucket — a write becomes a **downloadable execution artifact** |
+| `sftp://host/path` | ✅ | ✅ | SFTP; credentials via `secret://` |
+
+```yaml
+- id: pull
+  type: file_transfer
+  with:
+    source: sftp://files.acme.com/outbox/orders.csv
+    destination: artifact://orders.csv          # appears under the run's Artifacts
+    credentials: secret://acme_sftp             # JSON: {"username","password"} or {"username","private_key"}
+```
+
+Outputs: `size` (bytes) and, for an `artifact://` destination, `artifact_key`. Use
+`credentials` for the SFTP side, or `source_credentials` / `destination_credentials` when
+both sides are SFTP. Transfers are held in memory and capped at 100 MB. A bad scheme or an
+oversized file fails immediately (non-retryable).
 
 **Common fields** (in the properties panel): `needs` (via connectors), `condition`,
 `timeout` (e.g. `30s`), `max_attempts` (retries), `outputs` (expressions of the form

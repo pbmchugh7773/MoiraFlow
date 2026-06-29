@@ -8,7 +8,7 @@ import type { Edge, Node } from "@xyflow/react";
 import { stringify } from "yaml";
 import type { WorkflowDefinition } from "./api";
 
-export type JobType = "command" | "rest" | "sql" | "transform";
+export type JobType = "command" | "rest" | "sql" | "transform" | "file_transfer";
 export type KV = { key: string; value: string };
 
 export interface JobData extends Record<string, unknown> {
@@ -24,6 +24,9 @@ export interface JobData extends Record<string, unknown> {
   statement: string;
   format: string; // transform: csv | json | xml
   content: string; // transform: inline data to parse (templatable)
+  source: string; // file_transfer: source URI
+  destination: string; // file_transfer: destination URI
+  credentials: string; // file_transfer: secret://<key> for SFTP
   params: KV[]; // → env (command) | headers (rest) | params (sql)
   outputs: KV[]; // job outputs; for transform the values are path expressions
   timeout: string; // e.g. "30s"
@@ -47,6 +50,9 @@ export function blankData(jobId: string, type: JobType): JobData {
     statement: "SELECT 1",
     format: "json",
     content: "",
+    source: "",
+    destination: "",
+    credentials: "",
     params: [],
     outputs: [],
     timeout: "",
@@ -164,6 +170,10 @@ export function fromDefinition(def: WorkflowDefinition): {
           : typeof w.content === "string"
             ? w.content
             : JSON.stringify(w.content, null, 2);
+    } else if (type === "file_transfer") {
+      d.source = String(w.source ?? "");
+      d.destination = String(w.destination ?? "");
+      d.credentials = String(w.credentials ?? "");
     } else {
       d.connection = String(w.connection ?? "");
       d.statement = String(w.statement ?? "");
@@ -236,6 +246,12 @@ export function toYaml(
       job.with = {
         format: d.format,
         ...(hasUrl ? { url } : d.content.trim() ? { content: d.content } : {}),
+      };
+    } else if (d.type === "file_transfer") {
+      job.with = {
+        source: d.source,
+        destination: d.destination,
+        ...(d.credentials.trim() ? { credentials: d.credentials.trim() } : {}),
       };
     } else {
       job.with = {

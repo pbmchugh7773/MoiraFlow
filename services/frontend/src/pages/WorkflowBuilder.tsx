@@ -33,6 +33,7 @@ const TINT: Record<JobType, string> = {
   rest: "#7fa9d8",
   sql: "#9f86c0",
   transform: "#7bb89a",
+  file_transfer: "#d49a6a",
 };
 
 // ── custom node ──────────────────────────────────────────────────────────────
@@ -232,7 +233,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
           <div className="stack" style={{ gap: 10 }}>
             <div className="palette">
               <span className="label" style={{ marginRight: 4 }}>Drag onto canvas</span>
-              {(["command", "rest", "sql", "transform"] as JobType[]).map((t) => (
+              {(["command", "rest", "sql", "transform", "file_transfer"] as JobType[]).map((t) => (
                 <div key={t} className="palette-item mono" draggable
                   onDragStart={(e) => { e.dataTransfer.setData("application/moiraflow", t); e.dataTransfer.effectAllowed = "move"; }}
                   onDoubleClick={() => addNode(t, { x: 80 + Math.random() * 120, y: 80 + Math.random() * 80 })}
@@ -409,8 +410,21 @@ function PropsPanel({ data, onChange, onRemove }: {
           </Field>
         </>
       )}
+      {data.type === "file_transfer" && (
+        <>
+          <Field label="Source">
+            <input className="input mono" value={data.source} onChange={(e) => onChange({ source: e.target.value })} placeholder="https://… · s3://bucket/key · sftp://host/path" />
+          </Field>
+          <Field label="Destination">
+            <input className="input mono" value={data.destination} onChange={(e) => onChange({ destination: e.target.value })} placeholder="artifact://out.csv · s3://bucket/key · sftp://host/path" />
+          </Field>
+          <Field label="Credentials (optional, for SFTP)">
+            <input className="input mono" value={data.credentials} onChange={(e) => onChange({ credentials: e.target.value })} placeholder="secret://sftp_prod" />
+          </Field>
+        </>
+      )}
 
-      {data.type !== "transform" && (
+      {data.type !== "transform" && data.type !== "file_transfer" && (
         <KvEditor label={paramLabel} rows={data.params} onChange={(params) => onChange({ params })} placeholderKey="name" placeholderValue="value" />
       )}
       <KvEditor

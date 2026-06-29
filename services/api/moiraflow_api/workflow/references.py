@@ -29,10 +29,20 @@ def _iter_strings(value: Any) -> list[str]:
     return []
 
 
+# Outputs some job types always produce, so they can be referenced downstream
+# without being declared explicitly (the activity fills them at runtime).
+_AUTO_OUTPUTS: dict[str, set[str]] = {
+    "rest": {"status", "body"},
+    "file_transfer": {"size", "artifact_key"},
+}
+
+
 def validate_references(wf: WorkflowDefinition) -> list[WorkflowError]:
     errors: list[WorkflowError] = []
     context_keys = set(wf.spec.context.keys())
-    outputs_by_job = {job.id: set(job.outputs.keys()) for job in wf.spec.jobs}
+    outputs_by_job = {
+        job.id: set(job.outputs.keys()) | _AUTO_OUTPUTS.get(job.type, set()) for job in wf.spec.jobs
+    }
 
     for i, job in enumerate(wf.spec.jobs):
         loc = f"spec.jobs[{i}].with"

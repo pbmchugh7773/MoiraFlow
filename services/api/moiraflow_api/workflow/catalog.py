@@ -85,6 +85,30 @@ JOB_TYPES: list[dict[str, Any]] = [
             "description": "Each value is a path expression evaluated against the parsed data.",
         },
     },
+    {
+        "type": "file_transfer",
+        "description": (
+            "Move a file between a source and destination. Schemes: https://, "
+            "s3://bucket/key, artifact://key, sftp://host/path. An artifact:// destination "
+            "becomes a downloadable execution artifact; SFTP credentials come from secret://."
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["source", "destination"],
+            "additionalProperties": False,
+            "properties": {
+                "source": {"type": "string", "description": "Source URI."},
+                "destination": {"type": "string", "description": "Destination URI."},
+                "credentials": {"type": "string", "description": "secret://<key> for SFTP."},
+                "source_credentials": {"type": "string"},
+                "destination_credentials": {"type": "string"},
+            },
+        },
+        "output_schema": {
+            "type": "object",
+            "description": "size (bytes) and, for an artifact:// destination, artifact_key.",
+        },
+    },
 ]
 
 
