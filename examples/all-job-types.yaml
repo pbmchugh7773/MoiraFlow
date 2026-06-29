@@ -1,0 +1,69 @@
+# MoiraFlow — worked example exercising every job type.
+#
+# Flow:                health (rest) ─┐
+#                                     ├─► extract (transform) ─► notify (command) ─► audit (sql)
+#   snapshot (file_transfer) ─────────┘   (runs in parallel)
+#
+# `health` and `snapshot` have no dependencies, so they run concurrently; the rest of
+# the graph chains off `health`'s captured response.
+#
+# Prerequisites to run as-is (adjust to taste):
+#   • The `endpoint` returns JSON with `status` and `version` fields. The default points
+#     at host.docker.internal:8000 — from inside the worker container, `localhost` is the
+#     container itself, so use host.docker.internal (or a Compose service name).
+#   • A secret `pg_demo` holding a database DSN, for the `sql` job. For the local stack:
+#       PUT /api/v1/secrets/pg_demo  { "value": "postgresql+psycopg://moiraflow:moiraflow@postgres:5432/moiraflow" }
+#
+# Create it:  POST /api/v1/workflows  { "content": "<this yaml>", "format": "yaml" }
+# or paste it into the visual editor's Code tab.
+
+apiVersion: moiraflow/v1
+kind: Workflow
+metadata:
+  name: all_job_types_demo
+  description: "Showcase: rest -> transform -> command -> sql, plus a file_transfer snapshot."
+spec:
+  trigger: { type: manual }
+  context:
+    endpoint: http://host.docker.internal:8000/health/   # overridable at launch
+  jobs:
+    # 1) rest — call an HTTP endpoint; status + body are captured as outputs.
+    - id: health
+      type: rest
+      with:
+        method: GET
+        url: "{{ context.endpoint }}"
+        expect_status: [200]
+
+    # 2) file_transfer — download the same payload and keep it as a downloadable artifact.
+    - id: snapshot
+      type: file_transfer
+      with:
+        source: "{{ context.endpoint }}"
+        destination: artifact://health-snapshot.json
+
+    # 3) transform — parse the captured JSON and extract fields via path expressions.
+    - id: extract
+      type: transform
+      needs: [health]
+      with:
+        format: json
+        content: "{{ jobs.health.outputs.body }}"
+      outputs:
+        status: "$.status"
+        version: "$.version"
+
+    # 4) command — run a shell command using the extracted values.
+    - id: notify
+      type: command
+      needs: [extract]
+      with:
+        command: echo "health={{ jobs.extract.outputs.status }} version={{ jobs.extract.outputs.version }}"
+
+    # 5) sql — run a statement against a connection resolved from a secret.
+    - id: audit
+      type: sql
+      needs: [notify]
+      with:
+        connection: secret://pg_demo
+        statement: SELECT 1

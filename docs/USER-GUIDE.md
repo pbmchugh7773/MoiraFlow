@@ -64,6 +64,10 @@ version** (activated automatically); older versions remain immutable.
 
 ### Option B — YAML/JSON or API
 
+A complete, runnable example exercising **every** job type lives in
+[`examples/all-job-types.yaml`](../examples/all-job-types.yaml) (rest → transform → command
+→ sql, plus a file_transfer snapshot).
+
 Write the YAML and submit it to `POST /workflows`. A minimal example:
 
 ```yaml
