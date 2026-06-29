@@ -341,7 +341,9 @@ function PropsPanel({ data, onChange, onRemove }: {
         <div>
           <label className="label">Type</label>
           <select className="select" value={data.type} onChange={(e) => onChange({ type: e.target.value as JobType })}>
-            <option value="command">command</option><option value="rest">rest</option><option value="sql">sql</option>
+            {(["command", "rest", "sql", "transform", "file_transfer"] as JobType[]).map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
           </select>
         </div>
         <div>
