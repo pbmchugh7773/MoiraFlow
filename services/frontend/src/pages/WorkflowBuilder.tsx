@@ -1,8 +1,8 @@
 import {
   Background,
-  Handle,
+  Controls,
   MarkerType,
-  Position,
+  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   addEdge,
@@ -10,16 +10,17 @@ import {
   useNodesState,
   useReactFlow,
   type Connection,
-  type NodeProps,
   type OnSelectionChangeParams,
 } from "@xyflow/react";
 import { motion } from "framer-motion";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, type ValidationError, type WorkflowDefinition } from "../api";
 import {
   blankData,
+  createsCycle,
   dep,
   fromDefinition,
+  layout,
   toYaml,
   JOB_TYPE_LIST,
   TINT,
@@ -28,28 +29,10 @@ import {
   type JobType,
   type KV,
 } from "../builder-model";
+import { FlowNode, jobIncomplete } from "../FlowNode";
 import { JobIcon } from "../JobIcon";
 
-// ── custom node ──────────────────────────────────────────────────────────────
-function JobNodeView({ data, selected }: NodeProps<JobNode>) {
-  const tint = TINT[data.type];
-  return (
-    <div className={`flow-node${selected ? " selected" : ""}`} style={{ borderColor: tint }}>
-      <Handle id="in" type="target" position={Position.Left} className="flow-handle" />
-      <span className="flow-node-icon" style={{ color: tint }}><JobIcon type={data.type} /></span>
-      <div className="flow-node-body">
-        <div className="flow-node-id mono">{data.jobId || "—"}</div>
-        <div className="flow-node-meta">
-          <span className="flow-tag" style={{ color: tint, borderColor: tint }}>{data.type}</span>
-          {data.run_on === "agent" && <span className="flow-tag agent">agent</span>}
-        </div>
-      </div>
-      <Handle id="out" type="source" position={Position.Right} className="flow-handle" />
-    </div>
-  );
-}
-
-const NODE_TYPES = { job: JobNodeView };
+const NODE_TYPES = { job: FlowNode };
 
 // Shared edge appearance (initial + drawn edges render identically).
 const EDGE_OPTIONS = {
@@ -96,7 +79,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
   const [ok, setOk] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const counter = useRef(seed.counter);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const yaml = useMemo(() => toYaml(name, triggerType, cron, tz, nodes, edges, context), [name, triggerType, cron, tz, nodes, edges, context]);
@@ -130,8 +113,15 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
 
   const onConnect = useCallback(
     (c: Connection) => {
-      if (c.source === c.target) return;
-      setEdges((es) => addEdge(dep(c.source, c.target), es));
+      if (!c.source || !c.target) return;
+      setEdges((es) => {
+        if (es.some((e) => e.source === c.source && e.target === c.target)) return es; // dup
+        if (createsCycle(es, c.source!, c.target!)) {
+          setMsg("That connection would create a cycle.");
+          return es;
+        }
+        return addEdge(dep(c.source!, c.target!), es);
+      });
     },
     [setEdges],
   );
@@ -140,6 +130,36 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
     (id: string) => setEdges((es) => es.filter((e) => e.id !== id)),
     [setEdges],
   );
+
+  const duplicateNode = useCallback(
+    (id: string) => {
+      setNodes((ns) => {
+        const src = ns.find((n) => n.id === id);
+        if (!src) return ns;
+        counter.current += 1;
+        const newId = `n${counter.current}`;
+        const node: JobNode = {
+          id: newId,
+          type: "job",
+          position: { x: src.position.x + 40, y: src.position.y + 64 },
+          data: { ...src.data, jobId: `${src.data.jobId}_copy` },
+        };
+        setSelectedId(newId);
+        return ns.concat(node);
+      });
+    },
+    [setNodes],
+  );
+
+  const tidy = useCallback(() => {
+    setNodes((ns) => {
+      const needsOf = (nodeId: string) =>
+        edges.filter((e) => e.target === nodeId).map((e) => e.source);
+      const pos = layout(ns.map((n) => n.id), needsOf);
+      return ns.map((n) => (pos[n.id] ? { ...n, position: pos[n.id] } : n));
+    });
+    setTimeout(() => fitView({ duration: 350, padding: 0.2 }), 60);
+  }, [setNodes, edges, fitView]);
 
   const onSelectionChange = useCallback((p: OnSelectionChangeParams) => {
     setSelectedId(p.nodes.length === 1 ? p.nodes[0].id : null);
@@ -183,6 +203,23 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
       }
     }
   };
+
+  // ⌘/Ctrl+Enter saves from anywhere in the builder. A ref keeps the handler current
+  // without re-binding the listener each keystroke.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        void saveRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const incompleteCount = nodes.filter((n) => jobIncomplete(n.data)).length;
 
   return (
     <motion.div className="panel builder" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
@@ -235,6 +272,11 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
                   <JobIcon type={t} size={13} /> {t}
                 </div>
               ))}
+              <div className="grow" />
+              <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12 }}
+                onClick={() => selectedId && duplicateNode(selectedId)} disabled={!selectedId} title="Duplicate selected node">⧉ Duplicate</button>
+              <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12 }}
+                onClick={tidy} disabled={nodes.length === 0} title="Auto-arrange the graph">⤢ Tidy</button>
             </div>
             <div className="rf-edit" ref={wrapRef}
               onDrop={onDrop} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}>
@@ -251,14 +293,26 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
                 onEdgeDoubleClick={(_, e) => removeEdge(e.id)}
                 defaultEdgeOptions={EDGE_OPTIONS}
                 deleteKeyCode={["Delete", "Backspace"]}
+                snapToGrid
+                snapGrid={[16, 16]}
                 fitView
+                minZoom={0.2}
                 proOptions={{ hideAttribution: true }}
               >
                 <Background color="#2c2833" gap={22} size={1} />
+                <Controls showInteractive={false} />
+                <MiniMap pannable zoomable maskColor="rgba(16,15,18,0.66)"
+                  nodeColor={(n) => TINT[(n.data as { type: JobType }).type] ?? "#3a3540"} />
               </ReactFlow>
+              {nodes.length === 0 && (
+                <div className="canvas-empty">
+                  <div className="display" style={{ fontSize: 16, marginBottom: 6 }}>Empty canvas</div>
+                  <div className="faint" style={{ fontSize: 12.5 }}>Drag a job type from the palette, or double-click one to add it.</div>
+                </div>
+              )}
             </div>
             <div className="faint" style={{ fontSize: 11.5 }}>
-              Drag node handles to connect (creates <span className="mono">needs</span>). Double-click a connector — or select it and press <span className="mono">Delete</span> — to remove it. Click a node to edit its properties.
+              Drag node handles to connect (creates <span className="mono">needs</span>). Double-click a connector — or select it and press <span className="mono">Delete</span> — to remove it. Click a node to edit its properties. Save with <span className="mono">⌘/Ctrl+Enter</span>.
             </div>
           </div>
 
@@ -295,6 +349,12 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
           <button className="btn btn-gold" onClick={save}>{editWorkflow ? "Save new version" : "Create"}</button>
         </div>
         {ok && (!errors || errors.length === 0) && <span className="status success"><span className="dot" style={{ background: "currentColor" }} />valid</span>}
+        {incompleteCount > 0 && (
+          <span className="status" style={{ color: "var(--run)" }}>
+            <span className="dot" style={{ background: "currentColor" }} />
+            {incompleteCount} job{incompleteCount > 1 ? "s" : ""} missing a required field
+          </span>
+        )}
         {msg && <span className="dim" style={{ fontSize: 13 }}>{msg}</span>}
       </div>
       {errors && errors.length > 0 && (

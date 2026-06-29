@@ -52,7 +52,12 @@ In **Workflows → New workflow**:
    job's fields, parameters, outputs, condition, timeout, retries).
 5. **Code tab:** shows the generated YAML live (read-only), with a **Copy** button.
 6. **Validate** checks the definition against the schema; **Create** saves the workflow
-   (version 1, set active).
+   (version 1, set active). You can also save with **⌘/Ctrl+Enter**.
+
+Editor aids: each job shows its type icon and a one-line preview; a node missing a required
+field gets a **!** badge (and the footer counts them). Use **Tidy** to auto-arrange the
+graph, **Duplicate** to clone the selected job, and the canvas **controls / mini-map** to
+pan and zoom. Connections that would create a cycle are rejected.
 
 To **modify** an existing workflow, open it and click **Edit**. Saving creates a **new
 version** (activated automatically); older versions remain immutable.
@@ -203,7 +208,8 @@ declares no inputs, you can add ad-hoc key/value pairs or simply run it.
 ### Live monitor (execution detail)
 
 - **Status** plus a **live** badge (WebSocket) while the run is in progress.
-- **The weave:** the DAG with per-job status (running / success / failed / skipped).
+- **The weave:** the DAG with per-job status (running / success / failed / skipped). Click a
+  node to inspect its config; pan/zoom with the controls and mini-map.
 - **Logs:** streamed stdout/stderr of `command` jobs, **timestamped per line**, with
   secrets **redacted** (`***`). `rest` jobs emit a `→ 200 {...}` line with the response.
 - **Artifacts:** uploaded files, downloadable via presigned URLs.

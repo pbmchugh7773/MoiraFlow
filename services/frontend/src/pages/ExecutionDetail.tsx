@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, streamUrl, type Artifact, type Execution, type ExecutionEvent, type JobDef } from "../api";
 import { canLaunch, useAuth } from "../auth";
-import { DagView, StatusBadge } from "../components";
+import { DagView, StatusBadge, StatusLegend } from "../components";
 
 interface Item { type: string; job_id: string | null; payload: Record<string, unknown> }
 
@@ -95,6 +95,7 @@ export function ExecutionDetail() {
       {jobs.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <h3 className="display" style={{ fontSize: 18, marginBottom: 14 }}>The weave</h3>
+          <StatusLegend />
           <DagView jobs={jobs} statuses={jobStatus} />
         </div>
       )}

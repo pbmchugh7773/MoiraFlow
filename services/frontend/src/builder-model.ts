@@ -114,6 +114,28 @@ export const dep = (source: string, target: string): Edge => ({
   id: `${source}-${target}`, source, target, sourceHandle: "out", targetHandle: "in",
 });
 
+/** Would adding source→target create a cycle? True if target already reaches source
+ *  (so the new edge would close a loop), or if it's a self-edge. */
+export function createsCycle(
+  edges: { source: string; target: string }[],
+  source: string,
+  target: string,
+): boolean {
+  if (source === target) return true;
+  const adj = new Map<string, string[]>();
+  for (const e of edges) (adj.get(e.source) ?? adj.set(e.source, []).get(e.source)!).push(e.target);
+  const stack = [target];
+  const seen = new Set<string>();
+  while (stack.length) {
+    const x = stack.pop()!;
+    if (x === source) return true;
+    if (seen.has(x)) continue;
+    seen.add(x);
+    for (const n of adj.get(x) ?? []) stack.push(n);
+  }
+  return false;
+}
+
 // ── auto-layout (depth-based, left→right) for edit-mode imports ───────────────
 export function layout(
   ids: string[],
