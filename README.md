@@ -1,5 +1,11 @@
 # MoiraFlow
 
+[![CI](https://github.com/pbmchugh7773/MoiraFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/pbmchugh7773/MoiraFlow/actions/workflows/ci.yml)
+[![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](docs/06-roadmap-y-adr.md)
+![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
+![React 18](https://img.shields.io/badge/react-18-61DAFB?logo=react&logoColor=black)
+![Engine: Temporal](https://img.shields.io/badge/engine-Temporal-000000)
+
 An **Automation Operating System** for SMBs: workflows are defined **as code** (YAML/JSON),
 executed as **durable DAGs** on [Temporal](https://temporal.io), with jobs running
 server-side or on remote "thin agents".
