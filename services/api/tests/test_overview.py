@@ -76,3 +76,16 @@ def test_overview_aggregates_health_schedules_and_failures(session):
     }
     assert len(ov["recent_failures"]) == 1
     assert ov["recent_failures"][0]["workflow_name"] == "nightly"
+
+    # recent runs of any status, newest first
+    assert len(ov["recent_executions"]) == 4
+    statuses = {r["status"] for r in ov["recent_executions"]}
+    assert statuses == {"success", "failed", "running"}
+    assert all("duration_seconds" in r for r in ov["recent_executions"])
+
+    # 7-day activity buckets (oldest..today); the four runs land on today
+    assert len(ov["activity"]) == 7
+    today = ov["activity"][-1]
+    assert today["total"] == 4
+    assert today["success"] == 2
+    assert today["failed"] == 1

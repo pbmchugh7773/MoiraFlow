@@ -26,8 +26,10 @@ live, and resolving the most common problems. To install the stack, see the
 ## 2. Signing in and roles
 
 The **Dashboard** (the landing page) gives an at-a-glance view: workflow and execution
-counts, success rate, the cron **schedules** (with their next-run cadence and enabled
-state), and **recent failures** (click one to open the execution).
+counts and success rate; a **7-day activity chart** (runs per day, split success/failed)
+with a **status breakdown** bar; the cron **schedules** (cron expression + enabled state);
+and **recent runs** with their status and duration. It auto-refreshes every few seconds;
+click any run or schedule to open it.
 
 
 Open **http://localhost:5173** and sign in. Your role (RBAC) determines what you can do:

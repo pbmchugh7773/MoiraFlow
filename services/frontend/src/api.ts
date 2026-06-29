@@ -39,10 +39,17 @@ export interface ValidationResult { valid: boolean; errors: ValidationError[] }
 export interface Schedule {
   id: string; name: string; cron: string | null; timezone: string | null; enabled: boolean;
 }
+export interface ActivityDay { date: string; total: number; success: number; failed: number }
+export interface RecentRun {
+  id: string; workflow_name: string | null; status: Status;
+  created_at: string; duration_seconds: number | null;
+}
 export interface Overview {
   workflows: number;
   executions: { total: number; by_status: Record<string, number>; success_rate: number | null };
   schedules: Schedule[];
+  activity: ActivityDay[];
+  recent_executions: RecentRun[];
   recent_failures: { id: string; workflow_name: string | null; created_at: string }[];
 }
 
