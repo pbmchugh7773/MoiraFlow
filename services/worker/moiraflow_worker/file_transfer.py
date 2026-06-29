@@ -115,14 +115,57 @@ def write_artifact(
     }
 
 
+def _parse_host_key(line: str) -> tuple[str, Any]:
+    """Parse an OpenSSH public-key line (`ssh-rsa AAAA...`, from `ssh-keyscan`)."""
+    import base64
+
+    import paramiko
+
+    parts = line.split()
+    keytype, blob = parts[0], parts[1]
+    classes = {
+        "ssh-rsa": paramiko.RSAKey,
+        "ssh-ed25519": paramiko.Ed25519Key,
+        "ecdsa-sha2-nistp256": paramiko.ECDSAKey,
+        "ecdsa-sha2-nistp384": paramiko.ECDSAKey,
+        "ecdsa-sha2-nistp521": paramiko.ECDSAKey,
+    }
+    cls = classes.get(keytype)
+    if cls is None:
+        raise ValueError(f"unsupported host key type: {keytype!r}")
+    return keytype, cls(data=base64.b64decode(blob))
+
+
+def _configure_host_key(client: Any, host: str, creds: dict[str, Any]) -> None:
+    """Pin the server's host key when `host_key` is supplied (reject any mismatch);
+    otherwise trust on first use. Pin in production — `ssh-keyscan <host>` gives the key."""
+    import paramiko
+
+    if creds.get("host_key"):
+        keytype, key = _parse_host_key(creds["host_key"])
+        client.get_host_keys().add(host, keytype, key)
+        client.set_missing_host_key_policy(paramiko.RejectPolicy())
+    else:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+
+def _load_private_key(pem: str) -> Any:
+    import paramiko
+
+    for cls in (paramiko.RSAKey, paramiko.Ed25519Key, paramiko.ECDSAKey):
+        try:
+            return cls.from_private_key(io.StringIO(pem))
+        except Exception:  # noqa: PERF203 - try each key type
+            continue
+    raise ValueError("unsupported private key")
+
+
 def _sftp_client(parsed: dict[str, Any], creds: dict[str, Any]) -> Any:
-    import paramiko  # type: ignore[import-untyped]
+    import paramiko
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    pkey = None
-    if creds.get("private_key"):
-        pkey = paramiko.RSAKey.from_private_key(io.StringIO(creds["private_key"]))
+    _configure_host_key(client, parsed["host"], creds)
+    pkey = _load_private_key(creds["private_key"]) if creds.get("private_key") else None
     client.connect(
         parsed["host"],
         port=parsed["port"],

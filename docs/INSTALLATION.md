@@ -159,6 +159,18 @@ bash scripts/e2e_smoke.sh                  # 30 end-to-end checks against the ru
 create/export, launch with live projection, artifacts, cancel, user management, the full
 remote-agent lifecycle, and the audit log. It exits non-zero on any failure.
 
+### Test SFTP server (for the `file_transfer` SFTP path)
+
+A test SFTP server is defined under the `test` Compose profile (it is **not** part of the
+default stack). It serves the files in `scripts/sftp-seed/` to `testuser` / `testpass`:
+
+```bash
+docker compose --profile test up -d sftp     # reachable from the worker as sftp:22
+```
+
+Then a `file_transfer` job can pull from `sftp://testuser@sftp/upload/<file>` with
+`credentials` resolving to `{"username":"testuser","password":"testpass"}`.
+
 ---
 
 ## 6. Database and migrations

@@ -139,3 +139,29 @@ def test_run_file_transfer_job_config_error_is_non_retryable(monkeypatch):
     with pytest.raises(ApplicationError) as exc:
         activities.run_file_transfer_job(req)
     assert exc.value.non_retryable
+
+
+def test_host_key_pinning_uses_reject_policy():
+    paramiko = pytest.importorskip("paramiko")
+    from moiraflow_worker.file_transfer import _configure_host_key, _parse_host_key
+
+    key = paramiko.RSAKey.generate(2048)
+    line = f"{key.get_name()} {key.get_base64()}"
+
+    keytype, parsed = _parse_host_key(line)
+    assert keytype == "ssh-rsa"
+    assert parsed.get_base64() == key.get_base64()  # round-trips
+
+    client = paramiko.SSHClient()
+    _configure_host_key(client, "host.io", {"host_key": line})
+    assert isinstance(client._policy, paramiko.RejectPolicy)  # mismatch is rejected
+    assert client.get_host_keys().lookup("host.io") is not None  # expected key pinned
+
+
+def test_no_host_key_falls_back_to_trust_on_first_use():
+    paramiko = pytest.importorskip("paramiko")
+    from moiraflow_worker.file_transfer import _configure_host_key
+
+    client = paramiko.SSHClient()
+    _configure_host_key(client, "host.io", {})
+    assert isinstance(client._policy, paramiko.AutoAddPolicy)

@@ -94,6 +94,15 @@ services:
       temporal:
         condition: service_started
 
+  # Test SFTP server for the file_transfer SFTP path (profile: test — NOT part of the
+  # default stack). Start with: docker compose --profile test up -d sftp
+  sftp:
+    image: atmoz/sftp:alpine
+    profiles: ["test"]
+    command: ["testuser:testpass:::upload"]
+    volumes:
+      - ./scripts/sftp-seed:/home/testuser/upload:ro
+
 volumes:
   postgres-data:
   minio-data:

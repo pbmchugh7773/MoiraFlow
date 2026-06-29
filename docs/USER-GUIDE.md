@@ -146,6 +146,18 @@ Outputs: `size` (bytes) and, for an `artifact://` destination, `artifact_key`. U
 both sides are SFTP. Transfers are held in memory and capped at 100 MB. A bad scheme or an
 oversized file fails immediately (non-retryable).
 
+**SFTP credentials** are a `secret://` resolving to JSON:
+
+```json
+{ "username": "u", "password": "p" }
+{ "username": "u", "private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\n..." }
+```
+
+Add `"host_key"` to **pin the server's host key** — the value is the line from
+`ssh-keyscan <host>` (e.g. `"ssh-ed25519 AAAA..."`). When pinned, a server presenting a
+different key is rejected (protects against man-in-the-middle). Without a `host_key` the
+client trusts the host on first connection; **pin it in production.**
+
 **Common fields** (in the properties panel): `needs` (via connectors), `condition`,
 `timeout` (e.g. `30s`), `max_attempts` (retries), `outputs` (expressions of the form
 `{{ jobs.<id>.outputs.<key> }}`), and `run_on` (`server` or `agent`).
