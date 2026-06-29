@@ -216,9 +216,11 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 
 .palette { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .palette-item {
+  display: inline-flex; align-items: center; gap: 6px;
   border: 1px dashed; border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12.5px;
   cursor: grab; background: var(--ink-2); user-select: none; transition: background 0.15s, transform 0.1s;
 }
+.palette-item svg { flex: 0 0 auto; }
 .palette-item:hover { background: var(--panel-2); }
 .palette-item:active { cursor: grabbing; transform: scale(0.97); }
 
@@ -232,11 +234,14 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 
 /* custom flow node */
 .flow-node {
+  display: flex; align-items: center; gap: 10px;
   background: linear-gradient(180deg, var(--panel-2), var(--ink-2));
   border: 1.5px solid var(--line); border-radius: 9px; padding: 9px 14px; min-width: 132px;
   box-shadow: 0 6px 18px -10px rgba(0,0,0,0.7); transition: box-shadow 0.15s, border-color 0.15s;
 }
 .flow-node.selected { box-shadow: 0 0 0 2px var(--gold), 0 8px 22px -8px rgba(201,168,106,0.5); }
+.flow-node-icon { display: inline-flex; flex: 0 0 auto; }
+.flow-node-body { display: flex; flex-direction: column; min-width: 0; }
 .flow-node-id { font-size: 13px; color: var(--text); font-weight: 500; }
 .flow-node-meta { display: flex; gap: 6px; margin-top: 5px; }
 .flow-tag { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;

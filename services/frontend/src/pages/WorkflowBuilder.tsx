@@ -26,6 +26,7 @@ import {
   type JobType,
   type KV,
 } from "../builder-model";
+import { JobIcon } from "../JobIcon";
 
 const TINT: Record<JobType, string> = {
   command: "#c9a86a",
@@ -39,10 +40,13 @@ function JobNodeView({ data, selected }: NodeProps<JobNode>) {
   return (
     <div className={`flow-node${selected ? " selected" : ""}`} style={{ borderColor: tint }}>
       <Handle id="in" type="target" position={Position.Left} className="flow-handle" />
-      <div className="flow-node-id mono">{data.jobId || "—"}</div>
-      <div className="flow-node-meta">
-        <span className="flow-tag" style={{ color: tint, borderColor: tint }}>{data.type}</span>
-        {data.run_on === "agent" && <span className="flow-tag agent">agent</span>}
+      <span className="flow-node-icon" style={{ color: tint }}><JobIcon type={data.type} /></span>
+      <div className="flow-node-body">
+        <div className="flow-node-id mono">{data.jobId || "—"}</div>
+        <div className="flow-node-meta">
+          <span className="flow-tag" style={{ color: tint, borderColor: tint }}>{data.type}</span>
+          {data.run_on === "agent" && <span className="flow-tag agent">agent</span>}
+        </div>
       </div>
       <Handle id="out" type="source" position={Position.Right} className="flow-handle" />
     </div>
@@ -232,7 +236,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
                   onDragStart={(e) => { e.dataTransfer.setData("application/moiraflow", t); e.dataTransfer.effectAllowed = "move"; }}
                   onDoubleClick={() => addNode(t, { x: 80 + Math.random() * 120, y: 80 + Math.random() * 80 })}
                   style={{ borderColor: TINT[t], color: TINT[t] }}>
-                  + {t}
+                  <JobIcon type={t} size={13} /> {t}
                 </div>
               ))}
             </div>
