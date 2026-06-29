@@ -48,6 +48,8 @@ const EDGE_OPTIONS = {
 interface BuilderProps {
   /** Edit an existing workflow: saving creates+activates a new version. */
   editWorkflow?: { id: string; definition: WorkflowDefinition };
+  /** Seed a new (unsaved) workflow from a starter template. */
+  template?: WorkflowDefinition;
   onCreated?: () => void;
   onSaved?: () => void;
 }
@@ -60,12 +62,13 @@ export function WorkflowBuilder(props: BuilderProps) {
   );
 }
 
-function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
+function BuilderInner({ editWorkflow, template, onCreated, onSaved }: BuilderProps) {
   const seed = useMemo(() => {
     if (editWorkflow) return fromDefinition(editWorkflow.definition);
+    if (template) return fromDefinition(template);
     const n: JobNode = { id: "n1", type: "job", position: { x: 60, y: 60 }, data: blankData("job_1", "command") };
     return { name: "daily_import", triggerType: "manual" as const, cron: "0 6 * * *", tz: "", nodes: [n], edges: [], counter: 1, context: [] as KV[], notifications: [] as Notif[] };
-  }, [editWorkflow]);
+  }, [editWorkflow, template]);
 
   const [name, setName] = useState(seed.name);
   const [triggerType, setTriggerType] = useState<"manual" | "cron">(seed.triggerType);

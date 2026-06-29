@@ -47,7 +47,10 @@ Open **http://localhost:5173** and sign in. Your role (RBAC) determines what you
 
 ### Option A — Visual editor (recommended)
 
-In **Workflows → New workflow**:
+In **Workflows → New workflow**, first pick a **starter template** (Fetch & process API
+data, Ingest a file into the database, Scheduled health check, or the every-job-type demo)
+or **Blank workflow**. Templates are scaffolds — they pre-fill the canvas with a working
+shape and placeholder values (`secret://…`, example URLs) for you to edit. Then:
 
 1. Set the **Name** and **Trigger** (manual / cron) at the top.
 2. **Workflow inputs (context):** declare the workflow's parameters (key → default value).

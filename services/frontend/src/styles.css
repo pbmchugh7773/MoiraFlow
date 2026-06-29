@@ -327,3 +327,15 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .status-legend { display: flex; gap: 11px; flex-wrap: wrap; justify-content: flex-end; }
 .sl-item { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--text-dim); text-transform: capitalize; }
 .sl-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* template gallery */
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.tpl-card { text-align: left; cursor: pointer; background: var(--ink-2); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px; transition: border-color 0.16s, background 0.16s, transform 0.06s;
+  display: flex; flex-direction: column; gap: 5px; font-family: var(--font-sans); }
+.tpl-card:hover { border-color: var(--thread); background: var(--panel-2); }
+.tpl-card:active { transform: translateY(1px); }
+.tpl-blank { border-style: dashed; }
+.tpl-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.tpl-desc { font-size: 12px; color: var(--text-dim); line-height: 1.45; flex: 1; }
+.tpl-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); margin-top: 4px; }
