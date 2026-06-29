@@ -6,14 +6,26 @@ import {
   blankData,
   dep,
   fromDefinition,
+  JOB_TYPE_LIST,
   kvToObj,
   kvToTypedObj,
   objToKv,
+  TINT,
   toYaml,
   type JobData,
   type JobNode,
   type JobType,
 } from "./builder-model";
+import { ICON_TYPES } from "./JobIcon";
+
+describe("job-type registry (single source of truth)", () => {
+  it("every job type has a tint and an icon", () => {
+    for (const t of JOB_TYPE_LIST) {
+      expect(TINT[t]).toBeTruthy();
+      expect(ICON_TYPES).toContain(t);
+    }
+  });
+});
 
 // Build a canvas node carrying job data, like the builder does.
 function node(key: string, type: JobType, patch: Partial<JobData> = {}): JobNode {

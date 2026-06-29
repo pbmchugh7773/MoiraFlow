@@ -8,7 +8,23 @@ import type { Edge, Node } from "@xyflow/react";
 import { stringify } from "yaml";
 import type { WorkflowDefinition } from "./api";
 
-export type JobType = "command" | "rest" | "sql" | "transform" | "file_transfer";
+// Single source of truth for job types. The palette, the properties Type dropdown,
+// and the node tint all derive from this — add a type here (and a path in JobIcon)
+// and it shows up everywhere. Keeps the list from drifting across the UI.
+export const JOB_TYPES = [
+  { type: "command", tint: "#c9a86a" },
+  { type: "rest", tint: "#7fa9d8" },
+  { type: "sql", tint: "#9f86c0" },
+  { type: "transform", tint: "#7bb89a" },
+  { type: "file_transfer", tint: "#d49a6a" },
+] as const;
+
+export type JobType = (typeof JOB_TYPES)[number]["type"];
+export const JOB_TYPE_LIST: JobType[] = JOB_TYPES.map((j) => j.type);
+export const TINT: Record<JobType, string> = Object.fromEntries(
+  JOB_TYPES.map((j) => [j.type, j.tint]),
+) as Record<JobType, string>;
+
 export type KV = { key: string; value: string };
 
 export interface JobData extends Record<string, unknown> {

@@ -37,6 +37,8 @@ const PATHS: Record<string, JSX.Element> = {
   ),
 };
 
+export const ICON_TYPES = Object.keys(PATHS);
+
 export function JobIcon({ type, size = 15 }: { type: string; size?: number }) {
   const path = PATHS[type] ?? PATHS.command;
   return (

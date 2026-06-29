@@ -21,20 +21,14 @@ import {
   dep,
   fromDefinition,
   toYaml,
+  JOB_TYPE_LIST,
+  TINT,
   type JobData,
   type JobNode,
   type JobType,
   type KV,
 } from "../builder-model";
 import { JobIcon } from "../JobIcon";
-
-const TINT: Record<JobType, string> = {
-  command: "#c9a86a",
-  rest: "#7fa9d8",
-  sql: "#9f86c0",
-  transform: "#7bb89a",
-  file_transfer: "#d49a6a",
-};
 
 // ── custom node ──────────────────────────────────────────────────────────────
 function JobNodeView({ data, selected }: NodeProps<JobNode>) {
@@ -233,7 +227,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
           <div className="stack" style={{ gap: 10 }}>
             <div className="palette">
               <span className="label" style={{ marginRight: 4 }}>Drag onto canvas</span>
-              {(["command", "rest", "sql", "transform", "file_transfer"] as JobType[]).map((t) => (
+              {JOB_TYPE_LIST.map((t) => (
                 <div key={t} className="palette-item mono" draggable
                   onDragStart={(e) => { e.dataTransfer.setData("application/moiraflow", t); e.dataTransfer.effectAllowed = "move"; }}
                   onDoubleClick={() => addNode(t, { x: 80 + Math.random() * 120, y: 80 + Math.random() * 80 })}
@@ -341,7 +335,7 @@ function PropsPanel({ data, onChange, onRemove }: {
         <div>
           <label className="label">Type</label>
           <select className="select" value={data.type} onChange={(e) => onChange({ type: e.target.value as JobType })}>
-            {(["command", "rest", "sql", "transform", "file_transfer"] as JobType[]).map((t) => (
+            {JOB_TYPE_LIST.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
