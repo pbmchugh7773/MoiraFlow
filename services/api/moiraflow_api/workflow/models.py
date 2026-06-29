@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-JobType = Literal["command", "rest", "sql"]
+JobType = Literal["command", "rest", "sql", "transform"]
 RunOn = Literal["server", "agent"]
 TriggerType = Literal["cron", "manual", "webhook", "event"]
 OnError = Literal["fail", "continue", "compensate"]

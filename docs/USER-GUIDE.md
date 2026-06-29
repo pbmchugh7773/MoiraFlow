@@ -95,6 +95,29 @@ spec:
 | `command` | `command`, `artifacts?` | `env` (environment variables) | runs a shell command in isolation (non-root, rlimits, ephemeral workdir). `artifacts` lists files to upload to MinIO |
 | `rest` | `method`, `url`, `body?`, `expect_status?` | `headers` | captures the response into `outputs.status` and `outputs.body` |
 | `sql` | `connection`, `statement` | `params` | `connection` is a DSN or a `secret://<key>` reference |
+| `transform` | `format` (csv/json/xml), `content?` or `url?` | — (uses `outputs` for paths) | parses a file/payload and extracts values; see below |
+
+### Parsing and extracting data (`transform`)
+
+A `transform` job parses a csv/json/xml payload and pulls values out into outputs. The
+data comes from inline `content` (often templated from a previous job) or a `url` to
+download; each declared **output is a path expression** evaluated against the parsed data.
+
+```yaml
+- id: parse
+  type: transform
+  with:
+    format: csv
+    content: "{{ jobs.fetch.outputs.body }}"   # or a URL, or pasted raw data
+  outputs:
+    rows: "$.length"            # number of rows/items
+    first_email: "$[0].email"   # a field of the first row
+    all_names: "items[*].name"  # project a field across a list
+```
+
+Path mini-language: `$` (whole document), `$.a.b` (nested keys), `$[0]` (index),
+`$.length` (count of a list), `items[*].field` (project a key across a list). Malformed
+data or an unresolvable path fails the job immediately (non-retryable).
 
 **Common fields** (in the properties panel): `needs` (via connectors), `condition`,
 `timeout` (e.g. `30s`), `max_attempts` (retries), `outputs` (expressions of the form

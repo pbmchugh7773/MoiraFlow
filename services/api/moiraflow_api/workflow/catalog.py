@@ -62,6 +62,29 @@ JOB_TYPES: list[dict[str, Any]] = [
         },
         "output_schema": {"type": "object", "description": "Declared outputs (user-defined)."},
     },
+    {
+        "type": "transform",
+        "description": (
+            "Parse a csv/json/xml payload and extract values into outputs. Each declared "
+            "output is a path expression (e.g. `$.length`, `$[0].email`, `items[*].name`)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["format"],
+            "additionalProperties": False,
+            "properties": {
+                "format": {"enum": ["csv", "json", "xml"]},
+                "content": {
+                    "description": "Inline data to parse (often templated from a prior job).",
+                },
+                "url": {"type": "string", "description": "Download the data from this URL."},
+            },
+        },
+        "output_schema": {
+            "type": "object",
+            "description": "Each value is a path expression evaluated against the parsed data.",
+        },
+    },
 ]
 
 

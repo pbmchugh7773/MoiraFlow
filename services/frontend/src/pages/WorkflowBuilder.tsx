@@ -32,6 +32,7 @@ const TINT: Record<JobType, string> = {
   command: "#c9a86a",
   rest: "#7fa9d8",
   sql: "#9f86c0",
+  transform: "#7bb89a",
 };
 
 // ── custom node ──────────────────────────────────────────────────────────────
@@ -231,7 +232,7 @@ function BuilderInner({ editWorkflow, onCreated, onSaved }: BuilderProps) {
           <div className="stack" style={{ gap: 10 }}>
             <div className="palette">
               <span className="label" style={{ marginRight: 4 }}>Drag onto canvas</span>
-              {(["command", "rest", "sql"] as JobType[]).map((t) => (
+              {(["command", "rest", "sql", "transform"] as JobType[]).map((t) => (
                 <div key={t} className="palette-item mono" draggable
                   onDragStart={(e) => { e.dataTransfer.setData("application/moiraflow", t); e.dataTransfer.effectAllowed = "move"; }}
                   onDoubleClick={() => addNode(t, { x: 80 + Math.random() * 120, y: 80 + Math.random() * 80 })}
@@ -389,9 +390,33 @@ function PropsPanel({ data, onChange, onRemove }: {
           </Field>
         </>
       )}
+      {data.type === "transform" && (
+        <>
+          <div className="row" style={{ gap: 10 }}>
+            <div>
+              <label className="label">Format</label>
+              <select className="select" value={data.format} onChange={(e) => onChange({ format: e.target.value })}>
+                {["json", "csv", "xml"].map((f) => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="grow">
+              <label className="label">Source URL (optional)</label>
+              <input className="input mono" value={data.url} onChange={(e) => onChange({ url: e.target.value })} placeholder="https://… (or use inline content below)" />
+            </div>
+          </div>
+          <Field label="Inline content (optional, templatable)">
+            <textarea className="textarea mono" style={{ minHeight: 70 }} value={data.content} onChange={(e) => onChange({ content: e.target.value })} placeholder={'{{ jobs.fetch.outputs.body }}  — or paste raw data'} />
+          </Field>
+        </>
+      )}
 
-      <KvEditor label={paramLabel} rows={data.params} onChange={(params) => onChange({ params })} placeholderKey="name" placeholderValue="value" />
-      <KvEditor label="Outputs (expressions)" rows={data.outputs} onChange={(outputs) => onChange({ outputs })} placeholderKey="name" placeholderValue="{{ ... }}" mono />
+      {data.type !== "transform" && (
+        <KvEditor label={paramLabel} rows={data.params} onChange={(params) => onChange({ params })} placeholderKey="name" placeholderValue="value" />
+      )}
+      <KvEditor
+        label={data.type === "transform" ? "Outputs (path expressions)" : "Outputs (expressions)"}
+        rows={data.outputs} onChange={(outputs) => onChange({ outputs })}
+        placeholderKey="name" placeholderValue={data.type === "transform" ? "$.length" : "{{ ... }}"} mono />
 
       <Field label="Condition (optional) — run only if true">
         <input className="input mono" value={data.condition} onChange={(e) => onChange({ condition: e.target.value })}

@@ -8,7 +8,7 @@ import type { Edge, Node } from "@xyflow/react";
 import { stringify } from "yaml";
 import type { WorkflowDefinition } from "./api";
 
-export type JobType = "command" | "rest" | "sql";
+export type JobType = "command" | "rest" | "sql" | "transform";
 export type KV = { key: string; value: string };
 
 export interface JobData extends Record<string, unknown> {
@@ -18,12 +18,14 @@ export interface JobData extends Record<string, unknown> {
   command: string;
   artifacts: string; // space/comma separated paths
   method: string;
-  url: string;
+  url: string; // rest URL, or transform download URL
   body: string; // JSON text (rest)
   connection: string;
   statement: string;
+  format: string; // transform: csv | json | xml
+  content: string; // transform: inline data to parse (templatable)
   params: KV[]; // → env (command) | headers (rest) | params (sql)
-  outputs: KV[];
+  outputs: KV[]; // job outputs; for transform the values are path expressions
   timeout: string; // e.g. "30s"
   retries: number; // max_attempts
   condition: string; // run only if truthy, e.g. "{{ context.go }} == yes"
@@ -43,6 +45,8 @@ export function blankData(jobId: string, type: JobType): JobData {
     body: "",
     connection: "secret://pg_main",
     statement: "SELECT 1",
+    format: "json",
+    content: "",
     params: [],
     outputs: [],
     timeout: "",
@@ -151,6 +155,15 @@ export function fromDefinition(def: WorkflowDefinition): {
       d.url = String(w.url ?? "");
       d.body = w.body === undefined ? "" : JSON.stringify(w.body, null, 2);
       d.params = objToKv(w.headers as Record<string, unknown>);
+    } else if (type === "transform") {
+      d.format = String(w.format ?? "json");
+      d.url = String(w.url ?? "");
+      d.content =
+        w.content === undefined
+          ? ""
+          : typeof w.content === "string"
+            ? w.content
+            : JSON.stringify(w.content, null, 2);
     } else {
       d.connection = String(w.connection ?? "");
       d.statement = String(w.statement ?? "");
@@ -216,6 +229,13 @@ export function toYaml(
         url: d.url,
         ...(hasParams ? { headers: params } : {}),
         ...(body !== undefined ? { body } : {}),
+      };
+    } else if (d.type === "transform") {
+      const url = d.url.trim();
+      const hasUrl = url !== "" && url !== "https://";
+      job.with = {
+        format: d.format,
+        ...(hasUrl ? { url } : d.content.trim() ? { content: d.content } : {}),
       };
     } else {
       job.with = {

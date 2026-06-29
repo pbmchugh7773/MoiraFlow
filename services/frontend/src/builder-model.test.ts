@@ -108,6 +108,28 @@ describe("toYaml", () => {
     expect(typeof out.spec.jobs[0].outputs.done).toBe("string");
   });
 
+  it("maps a transform job: format + inline content, outputs are paths", () => {
+    const job = yaml([
+      node("n1", "transform", {
+        jobId: "parse",
+        type: "transform",
+        format: "csv",
+        url: "https://", // placeholder -> not emitted; inline content wins
+        content: "name,email\nA,a@x.io",
+        outputs: [{ key: "rows", value: "$.length" }],
+      }),
+    ]).spec.jobs[0];
+    expect(job.with).toEqual({ format: "csv", content: "name,email\nA,a@x.io" });
+    expect(job.outputs).toEqual({ rows: "$.length" });
+  });
+
+  it("maps a transform job with a download URL", () => {
+    const job = yaml([
+      node("n1", "transform", { jobId: "p", type: "transform", format: "json", url: "https://x.io/d.json" }),
+    ]).spec.jobs[0];
+    expect(job.with).toEqual({ format: "json", url: "https://x.io/d.json" });
+  });
+
   it("emits typed spec.context from the workflow inputs", () => {
     const out = yaml([node("n1", "command", { jobId: "a" })], [], [{ key: "count", value: "5" }]);
     expect(out.spec.context).toEqual({ count: 5 });

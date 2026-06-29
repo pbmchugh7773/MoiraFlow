@@ -21,6 +21,12 @@ const PATHS: Record<string, JSX.Element> = {
       <path d="M2.7 8c0 1.1 2.37 2 5.3 2s5.3-.9 5.3-2" />
     </>
   ),
+  transform: (
+    <>
+      <path d="M6.5 2.5c-2 0-1.5 2.2-1.5 3.3 0 1.1-.8 1.7-1.8 2.2 1 .5 1.8 1.1 1.8 2.2 0 1.1-.5 3.3 1.5 3.3" />
+      <path d="M9.5 2.5c2 0 1.5 2.2 1.5 3.3 0 1.1.8 1.7 1.8 2.2-1 .5-1.8 1.1-1.8 2.2 0 1.1.5 3.3-1.5 3.3" />
+    </>
+  ),
 };
 
 export function JobIcon({ type, size = 15 }: { type: string; size?: number }) {

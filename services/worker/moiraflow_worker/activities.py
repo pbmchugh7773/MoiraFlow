@@ -29,6 +29,7 @@ from .interpreter import JobRequest, JobResult
 from .isolation import apply_limits
 from .secrets import redact, resolve_reference
 from .storage import upload_artifacts
+from .transform import extract_path, parse_source
 
 # Misconfigurations that can never succeed by retrying — fail fast on the first
 # attempt instead of burning the retry budget and delaying the run's failure.
@@ -210,6 +211,43 @@ async def run_rest_job(request: JobRequest) -> JobResult:
     return JobResult(job_id=request.job_id, outputs=outputs, attempt=_attempt())
 
 
+@activity.defn(name="run_transform_job")
+async def run_transform_job(request: JobRequest) -> JobResult:
+    """Parse a file/payload (csv/json/xml) and extract values into outputs.
+
+    Reads `with.content` (inline, often templated from a prior job) or downloads
+    `with.url`, parses it per `with.format`, then evaluates each declared `output`
+    as a path expression against the parsed data (see `transform.py`).
+    """
+    inputs = request.inputs
+    fmt = str(inputs.get("format", "json"))
+    raw: Any = inputs.get("content")
+    url = inputs.get("url")
+    if url:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(str(url))
+            response.raise_for_status()
+            raw = response.text
+    try:
+        data = parse_source(raw, fmt)
+    except Exception as exc:  # malformed input can't succeed on retry
+        raise ApplicationError(
+            f"transform: cannot parse {fmt}: {exc}", type="ParseError", non_retryable=True
+        ) from None
+
+    outputs: dict[str, Any] = {}
+    for name, path in request.outputs_spec.items():
+        try:
+            outputs[name] = extract_path(data, str(path))
+        except Exception as exc:
+            raise ApplicationError(
+                f"transform: path {path!r} for output {name!r} failed: {exc}",
+                type="ExtractError",
+                non_retryable=True,
+            ) from None
+    return JobResult(job_id=request.job_id, outputs=outputs, attempt=_attempt())
+
+
 @activity.defn(name="run_sql_job")
 def run_sql_job(request: JobRequest) -> JobResult:
     """Run a SQL statement against a connection. `connection` is a DSN or a
@@ -236,5 +274,6 @@ SERVER_ACTIVITIES: list[Callable[..., Any]] = [
     run_command_job,
     run_rest_job,
     run_sql_job,
+    run_transform_job,
     publish_event,
 ]
